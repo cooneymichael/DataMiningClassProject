@@ -123,6 +123,58 @@ def explore_data(data, mut_per_sample, samples_per_mut, samples, muts):
     get_top_ten(top_ten)
     
 
+################################################################################
+# Week 3
+################################################################################
+
+# def generate_matrix(binary_labels, logical_array):
+#     """ Do stuff """
+#     tp = 
+
+def confusion_matrices(data):
+    """Generate confusion matrices for a constant set of gene mutations"""
+    MUTS_LIST = ['RNF43_GRCh38_17:58357800-58357800_Frame-Shift-Del_DEL_C-C--', 'TP53_GRCh38_17:7675088-7675088_Missense-Mutation_SNP_C-T-T_C-C-T']
+    # convert labels to binary
+    binary_labels = list(map(lambda x: 1 if x.startswith('C') else 0 ,data.index))
+    matrices = [[] for i in range(len(MUTS_LIST))]
+    for i in range(len(MUTS_LIST)):
+        col = data[MUTS_LIST[i]]
+        final_data = data[MUTS_LIST[i]]
+        df = pd.DataFrame(columns=[MUTS_LIST[i]], index=data.index)
+
+        final_data = list(map(lambda x,y: 'tp' if (x and y) else ('fp' if y is 1 else y), binary_labels,col))
+        final_data = list(map(lambda x,y: 'fn' if (not x and not y) else ('tn' if y is 0 else y), binary_labels, final_data))
+        df[MUTS_LIST[i]] = final_data
+
+        matrices[i].append(df)
+        # final_data = [list(map(lambda x,y: 'tp' if (x and y) else y, binary_labels, col))]
+        # final_data = [list(map(lambda x,y,z: 'fp' if (x and (not y)) else z, binary_labels, col, final_data))]
+        # final_data = [list(map(lambda x,y,z: 'tn' if ((not x) and y) else z, binary_labels, col, final_data))]
+        # final_data = [list(map(lambda x,y,z: 'fn' if ((not x) and (not y)) else z, binary_labels, col, final_data))]
+        # print(final_data)
+        # df[MUTS_LIST[i]] = final_data
+        # matrices[i].append(df)
+
+        # tp = list(map(lambda x,y: x and y, binary_labels, col))
+        # matrices[i].append({'tp':tp})
+
+        # fp = list(map(lambda x,y: 1 if (x and (not y)) else 0, binary_labels, col))
+        # matrices[i].append({'fp':fp})
+
+        # tn = list(map(lambda x,y: 1 if ((not x) and y) else 0, binary_labels, col))
+        # matrices[i].append({'tn':tn})
+
+        # fn = list(map(lambda x,y: 1 if ((not x) and (not y)) else 0, binary_labels, col))
+        # matrices[i].append({'fn':fn})
+
+    for i in matrices:
+        print(i)
+        print('================================================================================')
+    
+    
+
+
+
 def main():
     global number_of_mutations_per_sample
     global number_of_samples_per_mutation
@@ -139,7 +191,7 @@ def main():
     optlist = []
     if len(sys.argv) > 1:
         args = sys.argv[1:]
-        optlist, args = getopt.getopt(args, 'pe', ['plot', 'explore'])
+        optlist, args = getopt.getopt(args, 'pem', ['plot', 'explore', 'matrix'])
     else:
         del args
         del optlist
@@ -147,12 +199,16 @@ def main():
     if len(sys.argv) < 2:
         explore_data(data, number_of_mutations_per_sample, number_of_samples_per_mutation, samples, mutations)
         plot_data(data, number_of_mutations_per_sample, number_of_samples_per_mutation, samples, mutations)
+        confusion_matrices(data)
     if  optlist and ( ('--explore','') in optlist or ('-e', '') in optlist):
         # only need to explore the data
         explore_data(data, number_of_mutations_per_sample, number_of_samples_per_mutation, samples, mutations)
     if optlist and ( ('--plot', '') in optlist or ('-p', '') in optlist):
         # only need to plot the data
         plot_data(data, number_of_mutations_per_sample, number_of_samples_per_mutation, samples, mutations)
+    if optlist and ( ('--matrix', '') in optlist or ('-m', '') in optlist):
+        # only generate confusion matrices
+        confusion_matrices(data)
 
 if __name__ == '__main__':
         main()
