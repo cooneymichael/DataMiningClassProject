@@ -12,7 +12,8 @@ samples = []
 mutations = []
 
 def on_pick(event):
-    """Allow the user to click on a data point on the scatter plot and display its coordinates"""
+    """Allow the user to click on a data point on the scatter plot and display its
+    coordinates"""
     ind = event.ind
     if event.mouseevent.inaxes:
         ax = event.mouseevent.inaxes
@@ -23,8 +24,8 @@ def on_pick(event):
             print('ax1: ', number_of_samples_per_mutation[ind], mutations[ind])
 
 def plot_data(data, mut_per_sample, samples_per_mut, samples_local, muts):
-    """Create two scatter plots, plot the data, and display it.  Scatter plots can be interacted with by the user
-       and because of this will have no labels on the x-axes"""
+    """Create two scatter plots, plot the data, and display it.  Scatter plots can
+    be interacted with by the user and because of this will have no labels on the x-axes"""
     fig, ((ax0), (ax1)) = plt.subplots(nrows=2, ncols=1)
     plt.connect('pick_event', on_pick)
 
@@ -48,7 +49,8 @@ def plot_data(data, mut_per_sample, samples_per_mut, samples_local, muts):
     plt.show()
 
 def get_top_ten(top_ten):
-    """Sort each column of top_ten and print the ten highest values and their corresponding mutations for each"""
+    """Sort each column of top_ten and print the ten highest values and their 
+    corresponding mutations for each"""
     try:
         with open('topTenMutations.txt', 'w') as output:
             top_ten.sort_values('T', axis=0, inplace=True, ascending=False)
@@ -147,32 +149,69 @@ def confusion_matrices(data):
         df[MUTS_LIST[i]] = final_data
 
         matrices[i].append(df)
-        # final_data = [list(map(lambda x,y: 'tp' if (x and y) else y, binary_labels, col))]
-        # final_data = [list(map(lambda x,y,z: 'fp' if (x and (not y)) else z, binary_labels, col, final_data))]
-        # final_data = [list(map(lambda x,y,z: 'tn' if ((not x) and y) else z, binary_labels, col, final_data))]
-        # final_data = [list(map(lambda x,y,z: 'fn' if ((not x) and (not y)) else z, binary_labels, col, final_data))]
-        # print(final_data)
-        # df[MUTS_LIST[i]] = final_data
-        # matrices[i].append(df)
-
-        # tp = list(map(lambda x,y: x and y, binary_labels, col))
-        # matrices[i].append({'tp':tp})
-
-        # fp = list(map(lambda x,y: 1 if (x and (not y)) else 0, binary_labels, col))
-        # matrices[i].append({'fp':fp})
-
-        # tn = list(map(lambda x,y: 1 if ((not x) and y) else 0, binary_labels, col))
-        # matrices[i].append({'tn':tn})
-
-        # fn = list(map(lambda x,y: 1 if ((not x) and (not y)) else 0, binary_labels, col))
-        # matrices[i].append({'fn':fn})
-
-    for i in matrices:
-        print(i)
-        print('================================================================================')
-    
+    bar_charts(matrices)
     
 
+
+def bar_charts(confusion_matrices):
+    """Display bar charts showing the tp, fp, tn, and fn results for two genes """
+    # need 2 axes: one for each gene
+    # each axis shows two stacked bar charts
+
+    # gather information for charts, e.g. labels
+    titles = [confusion_matrices[0][0].columns, confusion_matrices[1][0].columns]
+    labels = ['Positives', 'Negatives']
+
+    # TODO: hardcoded for two genes: make more dynamic in future
+    # first gene: RNF
+    rnf = confusion_matrices[0][0]
+    rnf_tp = len(rnf[rnf.values == 'tp'])
+    rnf_fp = len(rnf[rnf.values == 'fp'])
+    rnf_tn = len(rnf[rnf.values == 'tn'])
+    rnf_fn = len(rnf[rnf.values == 'fn'])
+    
+    fig, ((ax0, ax1), (ax2, ax3)) = plt.subplots(nrows=2, ncols=2)
+    b0 = ax0.bar('Positives', rnf_tp, width=0.35, label='true positives')
+    b1 = ax0.bar('Positives', rnf_fp, bottom=rnf_tp, width=0.35, label='false positives')
+    b2 = ax0.bar('Negatives', rnf_tn, width=0.35, label='true negatives')
+    b3 = ax0.bar('Negatives', rnf_fn, bottom=rnf_tn, width=0.35, label='false negatives')
+
+    ax0.bar_label(b0, label_type='center')
+    ax0.bar_label(b1, label_type='center')
+    ax0.bar_label(b2, label_type='center')
+    ax0.bar_label(b3, label_type='center')
+
+    ax0.set_ylabel('Count')
+    ax0.set_title(titles[0][0])
+    ax0.legend()
+
+    # donut chart
+    ax2.pie([rnf_tp, rnf_fp, rnf_tn, rnf_fn], labels=['true positive','false positive','true negative','false negative'], autopct='%.1f%%')
+
+    # second gene: tp
+    tp53 = confusion_matrices[1][0]
+    tp53_tp = len(tp53[tp53.values == 'tp'])
+    tp53_fp = len(tp53[tp53.values == 'fp'])
+    tp53_tn = len(tp53[tp53.values == 'tn'])
+    tp53_fn = len(tp53[tp53.values == 'fn'])
+
+    b4 = ax1.bar('Positives', tp53_tp, width=0.35, label='true positives')
+    b5 = ax1.bar('Positives', tp53_fp, bottom=tp53_tp, width=0.35, label='false positives')
+    b6 = ax1.bar('Negatives', tp53_tn, width=0.35, label='true negatives')
+    b7 = ax1.bar('Negatives', tp53_fn, bottom=tp53_tn, width=0.35, label='false negatives')
+
+    ax1.bar_label(b4, label_type='center')
+    ax1.bar_label(b5, label_type='center')
+    ax1.bar_label(b6, label_type='center')
+    ax1.bar_label(b7, label_type='center')
+
+    ax1.set_ylabel('Count')
+    ax1.set_title(titles[1][0])
+    ax1.legend()
+
+    ax3.pie([tp53_tp, tp53_fp, tp53_tn, tp53_fn], labels=['true positive','false positive','true negative','false negative'], autopct='%.1f%%')
+
+    plt.show()
 
 
 def main():
