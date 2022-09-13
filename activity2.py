@@ -134,22 +134,43 @@ def explore_data(data, mut_per_sample, samples_per_mut, samples, muts):
 #     tp = 
 
 def confusion_matrices(data):
-    """Generate confusion matrices for a constant set of gene mutations"""
+    """Generate confusion matrices for the data set"""
+    mutations = data.columns
+    binary_labels = list(map(lambda x: 1 if x.startswith('C') else 0, data.index))
+    matrices = {}
+    for i in range(len(mutations)):
+        col = data[mutations[i]]
+        final_data = data[mutations[i]]
+        df = pd.DataFrame(columns=[mutations[i]], index=data.index)
+
+        final_data = list(map(lambda x, y: 'tp' if (x and y) else ('fp' if y == 1 else y), binary_labels, col))
+        final_data = list(map(lambda x, y: 'fn' if (not x and  not y) else ('tn' if y == 0 else y), binary_labels, final_data))
+        df[mutations[i]] = final_data
+
+        matrices[mutations[i]] = df
+
+    find_best(matrices)
     MUTS_LIST = ['RNF43_GRCh38_17:58357800-58357800_Frame-Shift-Del_DEL_C-C--', 'TP53_GRCh38_17:7675088-7675088_Missense-Mutation_SNP_C-T-T_C-C-T']
-    # convert labels to binary
-    binary_labels = list(map(lambda x: 1 if x.startswith('C') else 0 ,data.index))
-    matrices = [[] for i in range(len(MUTS_LIST))]
-    for i in range(len(MUTS_LIST)):
-        col = data[MUTS_LIST[i]]
-        final_data = data[MUTS_LIST[i]]
-        df = pd.DataFrame(columns=[MUTS_LIST[i]], index=data.index)
+    genes_of_interest = [pd.DataFrame(columns=[MUTS_LIST[0]], index=data.index, data=matrices[MUTS_LIST[0]].values),\
+                         pd.DataFrame(columns=[MUTS_LIST[1]], index=data.index, data=matrices[MUTS_LIST[1]].values)]
+    bar_charts(genes_of_interest)
 
-        final_data = list(map(lambda x,y: 'tp' if (x and y) else ('fp' if y is 1 else y), binary_labels,col))
-        final_data = list(map(lambda x,y: 'fn' if (not x and not y) else ('tn' if y is 0 else y), binary_labels, final_data))
-        df[MUTS_LIST[i]] = final_data
+    # """Generate confusion matrices for a constant set of gene mutations"""
+    # MUTS_LIST = ['RNF43_GRCh38_17:58357800-58357800_Frame-Shift-Del_DEL_C-C--', 'TP53_GRCh38_17:7675088-7675088_Missense-Mutation_SNP_C-T-T_C-C-T']
+    # # convert labels to binary
+    # binary_labels = list(map(lambda x: 1 if x.startswith('C') else 0 ,data.index))
+    # matrices = [[] for i in range(len(MUTS_LIST))]
+    # for i in range(len(MUTS_LIST)):
+    #     col = data[MUTS_LIST[i]]
+    #     final_data = data[MUTS_LIST[i]]
+    #     df = pd.DataFrame(columns=[MUTS_LIST[i]], index=data.index)
 
-        matrices[i].append(df)
-    bar_charts(matrices)
+    #     final_data = list(map(lambda x,y: 'tp' if (x and y) else ('fp' if y is 1 else y), binary_labels,col))
+    #     final_data = list(map(lambda x,y: 'fn' if (not x and not y) else ('tn' if y is 0 else y), binary_labels, final_data))
+    #     df[MUTS_LIST[i]] = final_data
+
+    #     matrices[i].append(df)
+    # bar_charts(matrices)
     
 
 
@@ -159,12 +180,12 @@ def bar_charts(confusion_matrices):
     # each axis shows two stacked bar charts
 
     # gather information for charts, e.g. labels
-    titles = [confusion_matrices[0][0].columns, confusion_matrices[1][0].columns]
+    titles = [confusion_matrices[0].columns.values[0], confusion_matrices[1].columns.values[0]]
     labels = ['Positives', 'Negatives']
 
     # TODO: hardcoded for two genes: make more dynamic in future
     # first gene: RNF
-    rnf = confusion_matrices[0][0]
+    rnf = confusion_matrices[0]
     rnf_tp = len(rnf[rnf.values == 'tp'])
     rnf_fp = len(rnf[rnf.values == 'fp'])
     rnf_tn = len(rnf[rnf.values == 'tn'])
@@ -182,14 +203,14 @@ def bar_charts(confusion_matrices):
     ax0.bar_label(b3, label_type='center')
 
     ax0.set_ylabel('Count')
-    ax0.set_title(titles[0][0])
+    ax0.set_title(titles[0])
     ax0.legend()
 
     # donut chart
     ax2.pie([rnf_tp, rnf_fp, rnf_tn, rnf_fn], labels=['true positive','false positive','true negative','false negative'], autopct='%.1f%%')
 
     # second gene: tp
-    tp53 = confusion_matrices[1][0]
+    tp53 = confusion_matrices[1]
     tp53_tp = len(tp53[tp53.values == 'tp'])
     tp53_fp = len(tp53[tp53.values == 'fp'])
     tp53_tn = len(tp53[tp53.values == 'tn'])
@@ -206,13 +227,44 @@ def bar_charts(confusion_matrices):
     ax1.bar_label(b7, label_type='center')
 
     ax1.set_ylabel('Count')
-    ax1.set_title(titles[1][0])
+    ax1.set_title(titles[1])
     ax1.legend()
 
     ax3.pie([tp53_tp, tp53_fp, tp53_tn, tp53_fn], labels=['true positive','false positive','true negative','false negative'], autopct='%.1f%%')
 
     plt.show()
 
+
+def find_best(matrices):
+    """find the best mutation to use to classify cancer based on true and false 
+    positives"""
+
+    # for i in matrices:
+    #     # calculate TP-FP and %TP-%FP
+    #     Sum tp and fp, take difference
+    #     find % of tp and fp, take difference
+    #     store in a tuple in a dict, e.g.: {'RNF...': (diff, %diff)}
+    # sort list by max value of each and print out the data to the screen
+
+    statistics = {}
+    for i in matrices:
+        df = matrices[i]
+        tp = len(df[df.values == 'tp'])
+        fp = len(df[df.values == 'fp'])
+
+        percent_tp = round(tp / 230, 2)
+        percent_fp = round(fp / 230, 2)
+        statistics[i] = (tp - fp, round(percent_tp - percent_fp, 2))
+    sorted_diffs = sorted(statistics, key=lambda x: statistics[x][0], reverse=True)[:10]
+    sorted_percents = sorted(statistics, key=lambda x: statistics[x][0], reverse=True)[:10]
+    print('========== Top 10 mutations by difference (TP - FP) ==========')
+    for i in sorted_diffs:
+        print(i, '\t', statistics[i])
+
+    print()
+    print('========== Top 10 mutaions by percent difference (%TP - %FP) ==========')
+    for i in sorted_percents:
+        print(i, '\t', statistics[i])
 
 def main():
     global number_of_mutations_per_sample
