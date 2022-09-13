@@ -46,7 +46,7 @@ def plot_data(data, mut_per_sample, samples_per_mut, samples_local, muts):
     ax1.axes.xaxis.set_ticklabels([])
     ax1.set_title('Number of samples per mutation')
 
-    plt.show()
+    # plt.show()
 
 def get_top_ten(top_ten):
     """Sort each column of top_ten and print the ten highest values and their 
@@ -232,7 +232,7 @@ def bar_charts(confusion_matrices):
 
     ax3.pie([tp53_tp, tp53_fp, tp53_tn, tp53_fn], labels=['true positive','false positive','true negative','false negative'], autopct='%.1f%%')
 
-    plt.show()
+    # plt.show()
 
 
 def find_best(matrices):
@@ -291,15 +291,18 @@ def main():
         explore_data(data, number_of_mutations_per_sample, number_of_samples_per_mutation, samples, mutations)
         plot_data(data, number_of_mutations_per_sample, number_of_samples_per_mutation, samples, mutations)
         confusion_matrices(data)
-    if  optlist and ( ('--explore','') in optlist or ('-e', '') in optlist):
-        # only need to explore the data
-        explore_data(data, number_of_mutations_per_sample, number_of_samples_per_mutation, samples, mutations)
-    if optlist and ( ('--plot', '') in optlist or ('-p', '') in optlist):
-        # only need to plot the data
-        plot_data(data, number_of_mutations_per_sample, number_of_samples_per_mutation, samples, mutations)
-    if optlist and ( ('--matrix', '') in optlist or ('-m', '') in optlist):
-        # only generate confusion matrices
-        confusion_matrices(data)
+    else:
+        if  optlist and ( ('--explore','') in optlist or ('-e', '') in optlist):
+            # only need to explore the data
+            explore_data(data, number_of_mutations_per_sample, number_of_samples_per_mutation, samples, mutations)
+        if optlist and ( ('--plot', '') in optlist or ('-p', '') in optlist):
+            # only need to plot the data
+            plot_data(data, number_of_mutations_per_sample, number_of_samples_per_mutation, samples, mutations)
+        if optlist and ( ('--matrix', '') in optlist or ('-m', '') in optlist):
+            # only generate confusion matrices
+            confusion_matrices(data)
+
+    plt.show()
 
 if __name__ == '__main__':
         main()
