@@ -143,11 +143,7 @@ def confusion_matrices(data):
 
         matrices[mutations[i]] = df
 
-    find_best(matrices)
-    MUTS_LIST = ['RNF43_GRCh38_17:58357800-58357800_Frame-Shift-Del_DEL_C-C--', 'TP53_GRCh38_17:7675088-7675088_Missense-Mutation_SNP_C-T-T_C-C-T']
-    genes_of_interest = [pd.DataFrame(columns=[MUTS_LIST[0]], index=data.index, data=matrices[MUTS_LIST[0]].values),\
-                         pd.DataFrame(columns=[MUTS_LIST[1]], index=data.index, data=matrices[MUTS_LIST[1]].values)]
-    bar_charts(genes_of_interest)
+    return matrices
 
     
 def bar_charts(confusion_matrices):
@@ -213,6 +209,7 @@ def find_best(matrices):
     """find the best mutation to use to classify cancer based on true and false 
     positives"""
 
+    # Pseudocode:
     # for i in matrices:
     #     # calculate TP-FP and %TP-%FP
     #     Sum tp and fp, take difference
@@ -239,6 +236,28 @@ def find_best(matrices):
     print('========== Top 10 mutaions by percent difference (%TP - %FP) ==========')
     for i in sorted_percents:
         print(i, '\t', statistics[i])
+    return (sorted_diffs, sorted_percents)
+
+################################################################################
+# Week 4
+################################################################################
+
+# pseudo decision tree (I would like to do this with an actual binary tree)
+def classify(mutation_of_interest):
+    positive = []
+    negative = []
+    samples = mutation_of_interest.index
+
+    for idx, val in enumerate(mutation_of_interest.values):
+        positive.append(samples[idx]) if (val == 1) else negative.append(samples[idx])
+
+    # print()
+    # print("========== Positives ==========")
+    # print(positive)
+
+    # print()
+    # print("========== Negatives ==========")
+    # print(negative)
 
 def main():
     global number_of_mutations_per_sample
@@ -274,9 +293,31 @@ def main():
             plot_data(data, number_of_mutations_per_sample, number_of_samples_per_mutation, samples, mutations)
         if optlist and ( ('--matrix', '') in optlist or ('-m', '') in optlist):
             # only generate confusion matrices
-            confusion_matrices(data)
+            matrix(data)
+            # matrices = confusion_matrices(data)
+            # (top_diff, top_percent_diff) = find_best(matrices)
+
+            # MUTS_LIST = ['RNF43_GRCh38_17:58357800-58357800_Frame-Shift-Del_DEL_C-C--', 'TP53_GRCh38_17:7675088-7675088_Missense-Mutation_SNP_C-T-T_C-C-T']
+            # genes_of_interest = [pd.DataFrame(columns=[MUTS_LIST[0]], index=data.index, data=matrices[MUTS_LIST[0]].values),\
+            #                      pd.DataFrame(columns=[MUTS_LIST[1]], index=data.index, data=matrices[MUTS_LIST[1]].values)]
+            # bar_charts(genes_of_interest)
+            
+            
 
     plt.show()
+
+
+def matrix(data):
+    matrices = confusion_matrices(data)
+    (top_diff, top_percent_diff) = find_best(matrices)
+    
+    MUTS_LIST = ['RNF43_GRCh38_17:58357800-58357800_Frame-Shift-Del_DEL_C-C--', 'TP53_GRCh38_17:7675088-7675088_Missense-Mutation_SNP_C-T-T_C-C-T']
+    genes_of_interest = [pd.DataFrame(columns=[MUTS_LIST[0]], index=data.index, data=matrices[MUTS_LIST[0]].values),\
+                         pd.DataFrame(columns=[MUTS_LIST[1]], index=data.index, data=matrices[MUTS_LIST[1]].values)]
+    bar_charts(genes_of_interest)
+
+    classify_mutation = data[top_diff[0]]
+    classify(classify_mutation)
 
 if __name__ == '__main__':
         main()
