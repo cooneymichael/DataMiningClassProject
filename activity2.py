@@ -140,9 +140,8 @@ def confusion_matrices(data):
         final_data = list(map(lambda x, y: 'tp' if (x and y) else ('fp' if y == 1 else y), binary_labels, col))
         final_data = list(map(lambda x, y: 'tn' if (not x and  not y) else ('fn' if y == 0 else y), binary_labels, final_data))
         df[mutations[i]] = final_data
-
+        
         matrices[mutations[i]] = df
-
     return matrices
 
     
@@ -242,6 +241,29 @@ def find_best(matrices):
 # Week 4
 ################################################################################
 
+
+def generate_confusion_matrix(confusion_matrix):
+    
+    fig, ax = plt.subplots(ncols=1, nrows=1)
+
+    tp = len(confusion_matrix[confusion_matrix.values == 'tp'])
+    tn = len(confusion_matrix[confusion_matrix.values == 'tn'])
+    fp = len(confusion_matrix[confusion_matrix.values == 'fp'])
+    fn = len(confusion_matrix[confusion_matrix.values == 'fn'])
+
+    # generate 4 colored rectangles, add labels to them
+    ax.imshow([[0.0, 0.7], [1.3, 2]], interpolation='nearest', cmap='PiYG')
+    ax.set_xticks(np.arange(0,2), ['positive', 'negative'])
+    ax.set_yticks(np.arange(0,2), ['positive', 'negative'])
+    ax.set_xlabel('PREDICTED')
+    ax.set_ylabel('ACTUAL')
+    ax.text(0,0,'TP\n' + str(tp))
+    ax.text(0,1,'FP\n' + str(fp))
+    ax.text(1,0,'FN\n' + str(fn))
+    ax.text(1,1,'TN\n' + str(tn))
+    ax.set_title(confusion_matrix.columns.values[0])
+
+
 # pseudo decision tree (I would like to do this with an actual binary tree)
 def classify(mutation_of_interest):
     positive = []
@@ -251,13 +273,22 @@ def classify(mutation_of_interest):
     for idx, val in enumerate(mutation_of_interest.values):
         positive.append(samples[idx]) if (val == 1) else negative.append(samples[idx])
 
-    # print()
-    # print("========== Positives ==========")
-    # print(positive)
+    return positive, negative
 
-    # print()
-    # print("========== Negatives ==========")
-    # print(negative)
+    print()
+    print("========== Positives ==========")
+    print(positive)
+    print(len(positive))
+
+    print()
+    print("========== Negatives ==========")
+    print(negative)
+    print(len(negative))
+
+def plot_confusion_matrix(confusion_matrix):
+    fix, ax0 = plt.subplots(nrows=1, ncols=1)
+    ax0.matshow(confusion_matrix, cmap=plt.cm.Blues, alpha=0.3)
+    
 
 def main():
     global number_of_mutations_per_sample
@@ -283,7 +314,7 @@ def main():
     if len(sys.argv) < 2:
         explore_data(data, number_of_mutations_per_sample, number_of_samples_per_mutation, samples, mutations)
         plot_data(data, number_of_mutations_per_sample, number_of_samples_per_mutation, samples, mutations)
-        confusion_matrices(data)
+        matrix(data)
     else:
         if  optlist and ( ('--explore','') in optlist or ('-e', '') in optlist):
             # only need to explore the data
@@ -294,13 +325,6 @@ def main():
         if optlist and ( ('--matrix', '') in optlist or ('-m', '') in optlist):
             # only generate confusion matrices
             matrix(data)
-            # matrices = confusion_matrices(data)
-            # (top_diff, top_percent_diff) = find_best(matrices)
-
-            # MUTS_LIST = ['RNF43_GRCh38_17:58357800-58357800_Frame-Shift-Del_DEL_C-C--', 'TP53_GRCh38_17:7675088-7675088_Missense-Mutation_SNP_C-T-T_C-C-T']
-            # genes_of_interest = [pd.DataFrame(columns=[MUTS_LIST[0]], index=data.index, data=matrices[MUTS_LIST[0]].values),\
-            #                      pd.DataFrame(columns=[MUTS_LIST[1]], index=data.index, data=matrices[MUTS_LIST[1]].values)]
-            # bar_charts(genes_of_interest)
             
             
 
@@ -317,7 +341,8 @@ def matrix(data):
     bar_charts(genes_of_interest)
 
     classify_mutation = data[top_diff[0]]
-    classify(classify_mutation)
+    (positive, negative) = classify(classify_mutation)
+    generate_confusion_matrix(matrices[classify_mutation.name])
 
 if __name__ == '__main__':
         main()
