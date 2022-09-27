@@ -336,7 +336,10 @@ def main():
         if optlist and ( ('--matrix', '') in optlist or ('-m', '') in optlist):
             # only generate confusion matrices
             # matrix(data)
-            tree(data)
+            decision_tree = make_tree(data)
+            print('========== Classifying Samples ==========')
+            for i in ['C1', 'C10', 'C50', 'NC5', 'NC15']:
+                print(i, ': ', decision_tree.classify(data.loc[i, :]))
             
             
 
@@ -363,10 +366,11 @@ def matrix(data):
     positive_classifier = get_best_classifier(positive_confusion_matrix_data, True)
     negative_classifier = get_best_classifier(negative_confusion_matrix_data, True)
 
-def tree(data):
+def make_tree(data):
     decision_tree = DecisionTree(data, 2)
     print("========== TREE ==========")
     print(decision_tree)
+    return decision_tree
     
     
 

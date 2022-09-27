@@ -96,7 +96,9 @@ class DecisionTree:
         # return (sorted_diffs, sorted_percents)
 
     def classify(self, sample):
-        if sample[self.classifier]:
+        # TODO: figure out why classifiers are stored in a list -> noticed while
+        # writing tree and too scared to fix it right now
+        if sample[self.classifier[0]]:
             if self.depth > 1:
                 # TODO: finish this
                 return self.right.classify(sample)
