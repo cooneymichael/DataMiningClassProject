@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.text as Annotation
 import sys #for sys.argv
 import getopt
+from decisiontree import DecisionTree
 
 # forgive me for my sins
 number_of_mutations_per_sample = pd.DataFrame([])
@@ -288,7 +289,17 @@ def classify(mutation_of_interest):
 def plot_confusion_matrix(confusion_matrix):
     fix, ax0 = plt.subplots(nrows=1, ncols=1)
     ax0.matshow(confusion_matrix, cmap=plt.cm.Blues, alpha=0.3)
-    
+
+
+################################################################################
+# Week 5
+################################################################################
+
+def get_best_classifier(matrices, diff_or_percent):
+    """Returns the best classifier using the TP-FP and %TP-%FP statistics"""
+    sorted_diffs, sorted_percents = find_best(matrices)
+    return sorted_diffs[0] if diff_or_percent else sorted_percents[0]
+
 
 def main():
     global number_of_mutations_per_sample
@@ -324,7 +335,8 @@ def main():
             plot_data(data, number_of_mutations_per_sample, number_of_samples_per_mutation, samples, mutations)
         if optlist and ( ('--matrix', '') in optlist or ('-m', '') in optlist):
             # only generate confusion matrices
-            matrix(data)
+            # matrix(data)
+            tree(data)
             
             
 
@@ -344,5 +356,40 @@ def matrix(data):
     (positive, negative) = classify(classify_mutation)
     generate_confusion_matrix(matrices[classify_mutation.name])
 
+    # week 5: find the next two classifiers for the positive and negative groups
+    # needs to be matrix of positive, not just identifier
+    positive_confusion_matrix_data = confusion_matrices(data.loc[positive, :])
+    negative_confusion_matrix_data = confusion_matrices(data.loc[negative, :])
+    positive_classifier = get_best_classifier(positive_confusion_matrix_data, True)
+    negative_classifier = get_best_classifier(negative_confusion_matrix_data, True)
+
+def tree(data):
+    decision_tree = DecisionTree(data, 2)
+    print("========== TREE ==========")
+    print(decision_tree)
+    
+    
+
+def classification_algo(classifier_list, sample):
+    """Takes in a list of classifiers and a sample.  A return value of True 
+    denotes cancer, a return value of False denotes no cancer"""
+    if sample[classifier_list[0]]:
+        if sample[classifier_list[1]]:
+            return True
+        else:
+            return False
+    else:
+        if sample[classifier_list[2]]:
+            return True
+        else:
+            return False
+
 if __name__ == '__main__':
         main()
+
+
+################################################################################
+# New plan:
+# make a binary tree as my decision tree because I don't want to hard code it
+# or should I hard code it to make it faster?
+# binary tree is easier to extend/re-train
