@@ -1,4 +1,6 @@
 import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
 
 class DecisionTree:
     # TODO: replace function parameters with self contained variables
@@ -34,6 +36,7 @@ class DecisionTree:
 
     # pseudo decision tree (I would like to do this with an actual binary tree)
     def __segregate_data(self, mutation_of_interest):
+        """Discern whether a sample tests as positive or negative given a mutation"""
         positive = []
         negative = []
         samples = mutation_of_interest.index
@@ -54,6 +57,8 @@ class DecisionTree:
         return positive, negative
 
     def __generate_confusion_matrices(self, data):
+        """Iterates through each mutation in the population and determines how many 
+        true and false postives, and true and false negatives there are"""
         mutations = data.columns
         binary_labels = list(map(lambda x: 1 if x.startswith('C') else 0, data.index))
         matrices = {}
@@ -110,6 +115,38 @@ class DecisionTree:
             else:
                 return False
 
+    def plot_confusion_matrix(self, plot_depth=1):
+        if plot_depth > 1:
+            self.left.plot_confusion_matrix(plot_depth - 1)
+            self.right.plot_confusion_matrix(plot_depth - 1)
+            return
+        else:
+
+            fig, ax = plt.subplots(ncols=1, nrows=1)
+
+            # get 'data' that is just calssifier and index
+            ind_data = pd.DataFrame(index=self.data.index, data=self.data[self.classifier[0]])
+            matrices = self.__generate_confusion_matrices(ind_data)
+            confusion_matrix = matrices[self.classifier[0]]
+            
+            tp = len(confusion_matrix[confusion_matrix.values == 'tp'])
+            tn = len(confusion_matrix[confusion_matrix.values == 'tn'])
+            fp = len(confusion_matrix[confusion_matrix.values == 'fp'])
+            fn = len(confusion_matrix[confusion_matrix.values == 'fn'])
+
+            # generate 4 colored rectangles, add labels to them
+            ax.imshow([[0.0, 0.7], [1.3, 2]], interpolation='nearest', cmap='PiYG')
+            ax.set_xticks(np.arange(0,2), ['positive', 'negative'])
+            ax.set_yticks(np.arange(0,2), ['positive', 'negative'])
+            ax.set_xlabel('PREDICTED')
+            ax.set_ylabel('ACTUAL')
+            ax.text(0,0,'TP\n' + str(tp))
+            ax.text(0,1,'FP\n' + str(fp))
+            ax.text(1,0,'FN\n' + str(fn))
+            ax.text(1,1,'TN\n' + str(tn))
+            ax.set_title(confusion_matrix.columns.values[0])
+
+
     def __str__(self):
         return '{ ' + self.classifier[0]\
             + '\n{ ' + (str(self.left) if self.depth > 1 else 'NC') + ' }'\
@@ -118,7 +155,7 @@ class DecisionTree:
 
         # print(self.classifier)
         # print("{ ")
-        # if self.depth > 1:
+
         #     print(self.left)
         #     print("} {")
         #     print(self.right)

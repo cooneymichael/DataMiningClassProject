@@ -286,10 +286,6 @@ def classify(mutation_of_interest):
     print(negative)
     print(len(negative))
 
-def plot_confusion_matrix(confusion_matrix):
-    fix, ax0 = plt.subplots(nrows=1, ncols=1)
-    ax0.matshow(confusion_matrix, cmap=plt.cm.Blues, alpha=0.3)
-
 
 ################################################################################
 # Week 5
@@ -299,6 +295,36 @@ def get_best_classifier(matrices, diff_or_percent):
     """Returns the best classifier using the TP-FP and %TP-%FP statistics"""
     sorted_diffs, sorted_percents = find_best(matrices)
     return sorted_diffs[0] if diff_or_percent else sorted_percents[0]
+
+
+def generate_bar_charts(data):
+
+    # TODO : this is redundant because it's in the decision tree, figure out how to get rid of it
+    
+    matrices = confusion_matrices(data)
+    # (top_diff, top_percent_diff) = find_best(matrices)
+    
+    MUTS_LIST = ['RNF43_GRCh38_17:58357800-58357800_Frame-Shift-Del_DEL_C-C--', 'TP53_GRCh38_17:7675088-7675088_Missense-Mutation_SNP_C-T-T_C-C-T']
+    genes_of_interest = [pd.DataFrame(columns=[MUTS_LIST[0]], index=data.index, data=matrices[MUTS_LIST[0]].values),\
+                         pd.DataFrame(columns=[MUTS_LIST[1]], index=data.index, data=matrices[MUTS_LIST[1]].values)]
+    bar_charts(genes_of_interest)
+
+    # classify_mutation = data[top_diff[0]]
+    # (positive, negative) = classify(classify_mutation)
+    # generate_confusion_matrix(matrices[classify_mutation.name])
+
+    # # week 5: find the next two classifiers for the positive and negative groups
+    # # needs to be matrix of positive, not just identifier
+    # positive_confusion_matrix_data = confusion_matrices(data.loc[positive, :])
+    # negative_confusion_matrix_data = confusion_matrices(data.loc[negative, :])
+    # positive_classifier = get_best_classifier(positive_confusion_matrix_data, True)
+    # negative_classifier = get_best_classifier(negative_confusion_matrix_data, True)
+
+def make_tree(data):
+    decision_tree = DecisionTree(data, 2)
+    print("========== TREE ==========")
+    print(decision_tree)
+    return decision_tree
 
 
 def main():
@@ -317,7 +343,7 @@ def main():
     optlist = []
     if len(sys.argv) > 1:
         args = sys.argv[1:]
-        optlist, args = getopt.getopt(args, 'pem', ['plot', 'explore', 'matrix'])
+        optlist, args = getopt.getopt(args, 'bcep', ['bar-charts', 'classify', 'explore', 'plot'])
     else:
         del args
         del optlist
@@ -333,63 +359,42 @@ def main():
         if optlist and ( ('--plot', '') in optlist or ('-p', '') in optlist):
             # only need to plot the data
             plot_data(data, number_of_mutations_per_sample, number_of_samples_per_mutation, samples, mutations)
-        if optlist and ( ('--matrix', '') in optlist or ('-m', '') in optlist):
+            generate_bar_charts(data)
+        if optlist and ( ('--classify', '') in optlist or ('-c', '') in optlist):
             # only generate confusion matrices
             # matrix(data)
             decision_tree = make_tree(data)
             print('========== Classifying Samples ==========')
             for i in ['C1', 'C10', 'C50', 'NC5', 'NC15']:
                 print(i, ': ', decision_tree.classify(data.loc[i, :]))
+            if (('--plot', '') in optlist or ('-p', '') in optlist):
+                decision_tree.plot_confusion_matrix()
             
-            
-
     plt.show()
 
-
-def matrix(data):
-    matrices = confusion_matrices(data)
-    (top_diff, top_percent_diff) = find_best(matrices)
-    
-    MUTS_LIST = ['RNF43_GRCh38_17:58357800-58357800_Frame-Shift-Del_DEL_C-C--', 'TP53_GRCh38_17:7675088-7675088_Missense-Mutation_SNP_C-T-T_C-C-T']
-    genes_of_interest = [pd.DataFrame(columns=[MUTS_LIST[0]], index=data.index, data=matrices[MUTS_LIST[0]].values),\
-                         pd.DataFrame(columns=[MUTS_LIST[1]], index=data.index, data=matrices[MUTS_LIST[1]].values)]
-    bar_charts(genes_of_interest)
-
-    classify_mutation = data[top_diff[0]]
-    (positive, negative) = classify(classify_mutation)
-    generate_confusion_matrix(matrices[classify_mutation.name])
-
-    # week 5: find the next two classifiers for the positive and negative groups
-    # needs to be matrix of positive, not just identifier
-    positive_confusion_matrix_data = confusion_matrices(data.loc[positive, :])
-    negative_confusion_matrix_data = confusion_matrices(data.loc[negative, :])
-    positive_classifier = get_best_classifier(positive_confusion_matrix_data, True)
-    negative_classifier = get_best_classifier(negative_confusion_matrix_data, True)
-
-def make_tree(data):
-    decision_tree = DecisionTree(data, 2)
-    print("========== TREE ==========")
-    print(decision_tree)
-    return decision_tree
     
     
 
-def classification_algo(classifier_list, sample):
-    """Takes in a list of classifiers and a sample.  A return value of True 
-    denotes cancer, a return value of False denotes no cancer"""
-    if sample[classifier_list[0]]:
-        if sample[classifier_list[1]]:
-            return True
-        else:
-            return False
-    else:
-        if sample[classifier_list[2]]:
-            return True
-        else:
-            return False
 
 if __name__ == '__main__':
         main()
+
+
+
+        
+# def classification_algo(classifier_list, sample):
+#     """Takes in a list of classifiers and a sample.  A return value of True 
+#     denotes cancer, a return value of False denotes no cancer"""
+#     if sample[classifier_list[0]]:
+#         if sample[classifier_list[1]]:
+#             return True
+#         else:
+#             return False
+#     else:
+#         if sample[classifier_list[2]]:
+#             return True
+#         else:
+#             return False
 
 
 ################################################################################
