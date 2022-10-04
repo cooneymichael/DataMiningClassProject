@@ -343,7 +343,7 @@ def main():
     optlist = []
     if len(sys.argv) > 1:
         args = sys.argv[1:]
-        optlist, args = getopt.getopt(args, 'bcep', ['bar-charts', 'classify', 'explore', 'plot'])
+        optlist, args = getopt.getopt(args, 'bcepx', ['bar-charts', 'classify', 'eval', 'plot', 'explore'])
     else:
         del args
         del optlist
@@ -353,25 +353,119 @@ def main():
         plot_data(data, number_of_mutations_per_sample, number_of_samples_per_mutation, samples, mutations)
         matrix(data)
     else:
-        if  optlist and ( ('--explore','') in optlist or ('-e', '') in optlist):
+        if  optlist and ( ('--explore','') in optlist or ('-x', '') in optlist):
             # only need to explore the data
             explore_data(data, number_of_mutations_per_sample, number_of_samples_per_mutation, samples, mutations)
         if optlist and ( ('--plot', '') in optlist or ('-p', '') in optlist):
             # only need to plot the data
             plot_data(data, number_of_mutations_per_sample, number_of_samples_per_mutation, samples, mutations)
             generate_bar_charts(data)
-        if optlist and ( ('--classify', '') in optlist or ('-c', '') in optlist):
-            # only generate confusion matrices
-            # matrix(data)
+        if optlist and ( ('--eval', '') in optlist or ('-e', '') in optlist\
+                         or ('--classify','') in optlist or ('-c','') in optlist):
+
             decision_tree = make_tree(data)
-            print('========== Classifying Samples ==========')
-            for i in ['C1', 'C10', 'C50', 'NC5', 'NC15']:
-                print(i, ': ', decision_tree.classify(data.loc[i, :]))
+
+            if optlist and ( ('--eval', '') in optlist or ('-e', '') in optlist):
+
+                # only generate confusion matrices
+                print('========== Top 10 Most Accurate Mutations ==========')
+                matrices = confusion_matrices(data)
+                top_10 = top_ten_accurate(matrices)
+                for i in top_10:
+                    print(i)
+
+                # start the evaluator
+                print('========== Classifying Samples ==========')
+                confusion_matrix = {}
+                for i in data.index:
+                    classification = decision_tree.classify(data.loc[i, :])
+                    confusion_matrix[i] = classification
+
+                print('========== Evaluating Classifier ==========')
+                evaluate(confusion_matrix)
+            
+            if optlist and (('--classify','') in optlist or ('-c','') in optlist):
+                for i in ['C1', 'C10', 'C50', 'NC5', 'NC15']:
+                    print(i, ': ', decision_tree.classify(data.loc[i, :]))
+
             if (('--plot', '') in optlist or ('-p', '') in optlist):
                 decision_tree.plot_confusion_matrix()
             
     plt.show()
+    # end main
 
+def evaluate(confusion_matrix):
+    # translate our confusion matrix from booleans to tp/fp/tn/fn
+    for i in confusion_matrix:
+        if i.startswith('NC'):
+            confusion_matrix[i] = 'tn' if confusion_matrix[i] == False else 'fp'
+        else:
+            confusion_matrix[i] = 'tp' if confusion_matrix[i] == True else 'fn'
+            
+            
+    # after classifying everything, we need to determine:
+    # accuracy, sensitivity, specificity, precision, miss rate,
+    # false discovery rate, and false omission rate
+    # we also need to plot a confusion matrix
+        
+    # accuracy -> Sum of all tn and fp, divided by total population
+    classified_tp_sum = 0
+    classified_tn_sum = 0
+    classified_fp_sum = 0
+    classified_fn_sum = 0
+    for i in confusion_matrix:
+        if confusion_matrix[i] == 'tp':
+            classified_tp_sum += 1
+        elif confusion_matrix[i] == 'tn':
+            classified_tn_sum += 1
+        elif confusion_matrix[i] == 'fp':
+            classified_fp_sum += 1
+        else:
+            classified_fn_sum += 1
+            
+    accuracy = (classified_tp_sum + classified_tn_sum) / 230
+    print('========== Accuracy of Classifier ==========')
+    print(accuracy)
+    
+    sensitivity = classified_tp_sum / (classified_tp_sum + classified_fn_sum)
+    print('========== Sensitivity of Classifier ==========')
+    print(sensitivity)
+    
+    specificity = classified_tn_sum / (classified_tn_sum + classified_fp_sum)
+    print('========== Specificity of Classifier ==========')
+    print(specificity)
+    
+    precision = classified_tp_sum / (classified_tp_sum + classified_fp_sum)
+    print('========== Precision of Classifier ==========')
+    print(precision)
+    
+    miss_rate = 1 - sensitivity
+    print('========== Miss Rate of Classifier ==========')
+    print(miss_rate)
+    
+    fdr = 1 - precision
+    print('========== False Discovery Rate of Classifier ==========')
+    print(fdr)
+    
+    false_omission_rate = classified_fn_sum / (classified_fn_sum + classified_tn_sum)
+    print('========== False Omission Rate ==========')
+    print(false_omission_rate)
+        
+
+
+def top_ten_accurate(matrices):
+    # TODO: make evaluator class to organize/manage this and find_best code, along with
+    # creation of confusion matrices
+    """accuracy == (TP + TN) / (T + N) == (TP+TN) / size of the population"""
+    statistics = {}
+    for i in matrices:
+        df = matrices[i]
+        tp = len(df[df.values == 'tp'])
+        fp = len(df[df.values == 'fp'])
+        
+        statistics[i] = ((tp + fp) / 230)
+    most_accurate = sorted(statistics, key=lambda x: statistics[x], reverse=True)[:10]
+    return most_accurate
     
     
 
