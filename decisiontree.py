@@ -2,8 +2,9 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
+# TODO: remove dead code, pseudo code
+# TODO: find a good way to prevent already-used mutations from being new classifiers
 class DecisionTree:
-    # TODO: replace function parameters with self contained variables
     def __init__(self, data, depth, classifier=None, remove_used=False):
         self.data = data
         self.classifier = classifier
@@ -34,7 +35,6 @@ class DecisionTree:
             self.right = None
             self.Left = None
 
-    # pseudo decision tree (I would like to do this with an actual binary tree)
     def __segregate_data(self, mutation_of_interest):
         """Discern whether a sample tests as positive or negative given a mutation"""
         positive = []
@@ -43,16 +43,6 @@ class DecisionTree:
 
         for idx, val in enumerate(mutation_of_interest.values):
             positive.append(samples[idx]) if (val == 1) else negative.append(samples[idx])
-
-        # print()
-        # print("========== Positives ==========")
-        # print(positive)
-        # print(len(positive))
-
-        # print()
-        # print("========== Negatives ==========")
-        # print(negative)
-        # print(len(negative))
 
         return positive, negative
 
@@ -96,9 +86,6 @@ class DecisionTree:
             percent_fp = round(fp / 230, 2)
             statistics[i] = (tp - fp, round(percent_tp - percent_fp, 2))
         return sorted(statistics, key=lambda x: statistics[x][0], reverse=True)[:1]
-        # sorted_diffs = sorted(statistics, key=lambda x: statistics[x][0], reverse=True)[:10]
-        # sorted_percents = sorted(statistics, key=lambda x: statistics[x][0], reverse=True)[:10]
-        # return (sorted_diffs, sorted_percents)
 
     def classify(self, sample):
         # TODO: figure out why classifiers are stored in a list -> noticed while
@@ -153,18 +140,6 @@ class DecisionTree:
             + '\n{ ' + (str(self.right) if self.depth > 1 else 'C') + ' }'\
             + '\n}'
 
-        # print(self.classifier)
-        # print("{ ")
-
-        #     print(self.left)
-        #     print("} {")
-        #     print(self.right)
-        # else:
-        #     return ("{Non Cancer}{Cancer}")
-        #     # print("Non Cancer")
-        #     # print("} {")
-        #     # print("Cancer")
-        # print("}")
 
 
 # plan:
