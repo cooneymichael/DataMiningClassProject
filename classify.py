@@ -322,9 +322,87 @@ def generate_bar_charts(data):
 
 def make_tree(data):
     decision_tree = DecisionTree(data, 2)
-    print("========== TREE ==========")
-    print(decision_tree)
+    # print("========== TREE ==========")
+    # print(decision_tree)
     return decision_tree
+
+
+def evaluate(confusion_matrix):
+    # translate our confusion matrix from booleans to tp/fp/tn/fn
+    for i in confusion_matrix:
+        if i.startswith('NC'):
+            confusion_matrix[i] = 'tn' if confusion_matrix[i] == False else 'fp'
+        else:
+            confusion_matrix[i] = 'tp' if confusion_matrix[i] == True else 'fn'
+            
+            
+    # after classifying everything, we need to determine:
+    # accuracy, sensitivity, specificity, precision, miss rate,
+    # false discovery rate, and false omission rate
+    # we also need to plot a confusion matrix
+        
+    # accuracy -> Sum of all tn and fp, divided by total population
+    classified_tp_sum = 0
+    classified_tn_sum = 0
+    classified_fp_sum = 0
+    classified_fn_sum = 0
+    for i in confusion_matrix:
+        if confusion_matrix[i] == 'tp':
+            classified_tp_sum += 1
+        elif confusion_matrix[i] == 'tn':
+            classified_tn_sum += 1
+        elif confusion_matrix[i] == 'fp':
+            classified_fp_sum += 1
+        else:
+            classified_fn_sum += 1
+            
+    accuracy = (classified_tp_sum + classified_tn_sum) / len(confusion_matrix)
+    print('========== Accuracy of Classifier ==========')
+    print(accuracy)
+    
+    sensitivity = classified_tp_sum / (classified_tp_sum + classified_fn_sum)
+    print('========== Sensitivity of Classifier ==========')
+    print(sensitivity)
+    
+    specificity = classified_tn_sum / (classified_tn_sum + classified_fp_sum)
+    print('========== Specificity of Classifier ==========')
+    print(specificity)
+    
+    precision = classified_tp_sum / (classified_tp_sum + classified_fp_sum)
+    print('========== Precision of Classifier ==========')
+    print(precision)
+    
+    miss_rate = 1 - sensitivity
+    print('========== Miss Rate of Classifier ==========')
+    print(miss_rate)
+    
+    fdr = 1 - precision
+    print('========== False Discovery Rate of Classifier ==========')
+    print(fdr)
+    
+    false_omission_rate = classified_fn_sum / (classified_fn_sum + classified_tn_sum)
+    print('========== False Omission Rate ==========')
+    print(false_omission_rate)
+    return accuracy, sensitivity, specificity, precision, miss_rate, fdr, false_omission_rate
+
+
+def top_ten_accurate(matrices):
+    # TODO: make evaluator class to organize/manage this and find_best code, along with
+    # creation of confusion matrices
+    """accuracy == (TP + TN) / (T + N) == (TP+TN) / size of the population"""
+    statistics = {}
+    for i in matrices:
+        df = matrices[i]
+        tp = len(df[df.values == 'tp'])
+        fp = len(df[df.values == 'fp'])
+        
+        statistics[i] = ((tp + fp) / 230)
+    most_accurate = sorted(statistics, key=lambda x: statistics[x], reverse=True)[:10]
+    return most_accurate
+    
+################################################################################
+# Week 8
+################################################################################
 
 
 def main():
@@ -343,7 +421,7 @@ def main():
     optlist = []
     if len(sys.argv) > 1:
         args = sys.argv[1:]
-        optlist, args = getopt.getopt(args, 'bcepx', ['bar-charts', 'classify', 'eval', 'plot', 'explore'])
+        optlist, args = getopt.getopt(args, 'bcepxi', ['bar-charts', 'classify', 'eval', 'plot', 'explore', 'iterate'])
     else:
         del args
         del optlist
@@ -390,83 +468,83 @@ def main():
 
             if (('--plot', '') in optlist or ('-p', '') in optlist):
                 decision_tree.plot_confusion_matrix()
+        if optlist and (('--iterate', '') in optlist or ('-i', '') in optlist):
+            # create random sets
+            set_three = data
+            set_one = set_three.sample(230//3)
+            set_two = set_three.drop(labels=list(set_one.index)).sample(230//3)
+            set_three = set_three.drop(labels=list(set_two.index)).drop(labels=list(set_one.index))
+
+            evaluation_metrics = []
+
+            # create trees using iterations of training and testing sets
+            for i in range(3):
+                training_set = None
+                testing_set = None
+                if i == 0:
+                    # training set is sets 0,1
+                    training_set = pd.concat([set_one, set_two])
+                    testing_set = set_three
+                elif i == 1:
+                    # training set is sets 1,2
+                    training_set = pd.concat([set_two, set_three])
+                    testing_set = set_one
+                else :
+                    # training set is sets 0,2
+                    training_set = pd.concat([set_one, set_three])
+                    testing_set = set_two
+
+                # print('================================================================================')
+                # print(training_set)
+                
+                # make the tree using the generated training set and begin evaluating
+                decision_tree = make_tree(training_set)
+
+                # begin passing in test values, then compare to the source of truth to
+                # find tp, tn, fp, fn and statistics
+                confusion_matrix = {}
+                for k in testing_set.index:
+                    classification = decision_tree.classify(testing_set.loc[k, :])
+                    confusion_matrix[k] = classification
+                (accuracy, sensitivity, specificity, precision, miss_rate, fdr, false_omission_rate) = evaluate(confusion_matrix)
+                print('================================================================================')
+                print('================================================================================')
+                evaluation_metrics.append({'accuracy': accuracy,\
+                                           'sensitivity': sensitivity,\
+                                           'specificity': specificity,\
+                                           'precision': precision,\
+                                           'miss_rate': miss_rate,\
+                                           'fdr': fdr,\
+                                           'false_omission_rate': false_omission_rate})
+
+            print('========== Average Metrics ==========')
+            # print(evaluation_metrics)
+            avg_accuracy = 0
+            avg_sensitivity = 0
+            avg_specificity = 0
+            avg_precision = 0
+            avg_miss_rate = 0
+            avg_fdr = 0
+            avg_false_omission_rate = 0
+            for i in range(len(evaluation_metrics)):
+                avg_accuracy += evaluation_metrics[i]['accuracy']
+                avg_sensitivity += evaluation_metrics[i]['sensitivity']
+                avg_specificity += evaluation_metrics[i]['specificity']
+                avg_precision += evaluation_metrics[i]['precision']
+                avg_miss_rate += evaluation_metrics[i]['miss_rate']
+                avg_fdr += evaluation_metrics[i]['fdr']
+                avg_false_omission_rate += evaluation_metrics[i]['false_omission_rate']
+            print('average accuracy: ',avg_accuracy / len(evaluation_metrics))
+            print('average sensitivity: ', avg_sensitivity / len(evaluation_metrics))
+            print('average specificity: ' ,avg_specificity / len(evaluation_metrics))
+            print('average precision: ' ,avg_precision / len(evaluation_metrics))
+            print('average miss rate: ', avg_miss_rate / len(evaluation_metrics))
+            print('average fdr: ', avg_fdr / len(evaluation_metrics))
+            print('average false omission rate: ', avg_false_omission_rate / len(evaluation_metrics))
             
     plt.show()
     # end main
 
-def evaluate(confusion_matrix):
-    # translate our confusion matrix from booleans to tp/fp/tn/fn
-    for i in confusion_matrix:
-        if i.startswith('NC'):
-            confusion_matrix[i] = 'tn' if confusion_matrix[i] == False else 'fp'
-        else:
-            confusion_matrix[i] = 'tp' if confusion_matrix[i] == True else 'fn'
-            
-            
-    # after classifying everything, we need to determine:
-    # accuracy, sensitivity, specificity, precision, miss rate,
-    # false discovery rate, and false omission rate
-    # we also need to plot a confusion matrix
-        
-    # accuracy -> Sum of all tn and fp, divided by total population
-    classified_tp_sum = 0
-    classified_tn_sum = 0
-    classified_fp_sum = 0
-    classified_fn_sum = 0
-    for i in confusion_matrix:
-        if confusion_matrix[i] == 'tp':
-            classified_tp_sum += 1
-        elif confusion_matrix[i] == 'tn':
-            classified_tn_sum += 1
-        elif confusion_matrix[i] == 'fp':
-            classified_fp_sum += 1
-        else:
-            classified_fn_sum += 1
-            
-    accuracy = (classified_tp_sum + classified_tn_sum) / 230
-    print('========== Accuracy of Classifier ==========')
-    print(accuracy)
-    
-    sensitivity = classified_tp_sum / (classified_tp_sum + classified_fn_sum)
-    print('========== Sensitivity of Classifier ==========')
-    print(sensitivity)
-    
-    specificity = classified_tn_sum / (classified_tn_sum + classified_fp_sum)
-    print('========== Specificity of Classifier ==========')
-    print(specificity)
-    
-    precision = classified_tp_sum / (classified_tp_sum + classified_fp_sum)
-    print('========== Precision of Classifier ==========')
-    print(precision)
-    
-    miss_rate = 1 - sensitivity
-    print('========== Miss Rate of Classifier ==========')
-    print(miss_rate)
-    
-    fdr = 1 - precision
-    print('========== False Discovery Rate of Classifier ==========')
-    print(fdr)
-    
-    false_omission_rate = classified_fn_sum / (classified_fn_sum + classified_tn_sum)
-    print('========== False Omission Rate ==========')
-    print(false_omission_rate)
-        
-
-
-def top_ten_accurate(matrices):
-    # TODO: make evaluator class to organize/manage this and find_best code, along with
-    # creation of confusion matrices
-    """accuracy == (TP + TN) / (T + N) == (TP+TN) / size of the population"""
-    statistics = {}
-    for i in matrices:
-        df = matrices[i]
-        tp = len(df[df.values == 'tp'])
-        fp = len(df[df.values == 'fp'])
-        
-        statistics[i] = ((tp + fp) / 230)
-    most_accurate = sorted(statistics, key=lambda x: statistics[x], reverse=True)[:10]
-    return most_accurate
-    
     
 
 
@@ -475,24 +553,12 @@ if __name__ == '__main__':
 
 
 
-        
-# def classification_algo(classifier_list, sample):
-#     """Takes in a list of classifiers and a sample.  A return value of True 
-#     denotes cancer, a return value of False denotes no cancer"""
-#     if sample[classifier_list[0]]:
-#         if sample[classifier_list[1]]:
-#             return True
-#         else:
-#             return False
-#     else:
-#         if sample[classifier_list[2]]:
-#             return True
-#         else:
-#             return False
-
-
-################################################################################
-# New plan:
-# make a binary tree as my decision tree because I don't want to hard code it
-# or should I hard code it to make it faster?
-# binary tree is easier to extend/re-train
+# Randomly gen 3 sets from data (shuffle) (df.sample())
+# In a for loop:
+# do all permutations ->  just hard code it based on value of iteration
+# combine groups into df
+# make tree using training set
+# test using test set
+# use evaluator to compare results
+# calculate statistics
+# repeat
