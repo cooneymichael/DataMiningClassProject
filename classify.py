@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.text as Annotation
 import sys #for sys.argv
 import getopt
-from decisiontree import DecisionTree
+from decisiontree import DecisionTreePhi, DecisionTree
 
 # forgive me for my sins
 number_of_mutations_per_sample = pd.DataFrame([])
@@ -273,6 +273,7 @@ def classify(mutation_of_interest):
 
     for idx, val in enumerate(mutation_of_interest.values):
         positive.append(samples[idx]) if (val == 1) else negative.append(samples[idx])
+    
 
     return positive, negative
 
@@ -321,7 +322,8 @@ def generate_bar_charts(data):
     # negative_classifier = get_best_classifier(negative_confusion_matrix_data, True)
 
 def make_tree(data):
-    decision_tree = DecisionTree(data, 2)
+    decision_tree = DecisionTreePhi(data, 2)
+    # decision_tree = DecisionTree(data, 2)
     # print("========== TREE ==========")
     # print(decision_tree)
     return decision_tree
@@ -507,6 +509,10 @@ def main():
                     classification = decision_tree.classify(testing_set.loc[k, :])
                     confusion_matrix[k] = classification
                 (accuracy, sensitivity, specificity, precision, miss_rate, fdr, false_omission_rate) = evaluate(confusion_matrix)
+
+                print('================================================================================')
+                print(decision_tree)
+
                 print('================================================================================')
                 print('================================================================================')
                 evaluation_metrics.append({'accuracy': accuracy,\
@@ -516,6 +522,7 @@ def main():
                                            'miss_rate': miss_rate,\
                                            'fdr': fdr,\
                                            'false_omission_rate': false_omission_rate})
+
 
             print('========== Average Metrics ==========')
             # print(evaluation_metrics)

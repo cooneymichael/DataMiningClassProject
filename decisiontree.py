@@ -2,6 +2,10 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
+import warnings
+
+warnings.filterwarnings(action='ignore', category=FutureWarning)
+
 # TODO: remove dead code, pseudo code
 # TODO: find a good way to prevent already-used mutations from being new classifiers
 class DecisionTree:
@@ -9,6 +13,8 @@ class DecisionTree:
         self.data = data
         self.classifier = classifier
         self.depth = depth
+        self.positives = None
+        self.negatives = None
 
         # root node setup:
         if self.classifier == None:
@@ -19,18 +25,21 @@ class DecisionTree:
         # segregate the data using the classifier
         positives, negatives = self.__segregate_data(self.data[self.classifier])
 
-        # generate confusion matrices with the segrated data
-        # TODO: get "data" into the tree
-        positive_confusion_matrix_data = self.__generate_confusion_matrices(data.loc[positives, :])
-        negative_confusion_matrix_data = self.__generate_confusion_matrices(data.loc[negatives, :])
-
-        # find the next classifier
-        positive_classifier = self.__get_next_classifier(positive_confusion_matrix_data)
-        negative_classifier = self.__get_next_classifier(negative_confusion_matrix_data)
+        if depth > 1:
+            # generate confusion matrices with the segrated data
+            # TODO: get "data" into the tree
+            positive_confusion_matrix_data = self.__generate_confusion_matrices(data.loc[positives, :])
+            negative_confusion_matrix_data = self.__generate_confusion_matrices(data.loc[negatives, :])
+            
+            # find the next classifier
+            positive_classifier = self.__get_next_classifier(positive_confusion_matrix_data)
+            negative_classifier = self.__get_next_classifier(negative_confusion_matrix_data)
 
         if depth > 1:
-            self.right = DecisionTree(self.data, self.depth - 1, classifier=positive_classifier)
-            self.left = DecisionTree(self.data, self.depth-1, classifier=negative_classifier)
+            positive_data = self.data.drop(self.positives.values, axis=0)
+            negative_data = self.data.drop(self.negatives.values, axis=0)
+            self.right = DecisionTree(positive_data, self.depth - 1, classifier=positive_classifier)
+            self.left = DecisionTree(negative_data, self.depth-1, classifier=negative_classifier)
         else:
             self.right = None
             self.Left = None
@@ -67,7 +76,7 @@ class DecisionTree:
     def __get_next_classifier(self, matrices):
         """find the best mutation to use to classify cancer based on true and false 
         positives"""
-
+        
         # Pseudocode:
         # for i in matrices:
         #     # calculate TP-FP and %TP-%FP
@@ -88,8 +97,6 @@ class DecisionTree:
         return sorted(statistics, key=lambda x: statistics[x][0], reverse=True)[:1]
 
     def classify(self, sample):
-        # TODO: figure out why classifiers are stored in a list -> noticed while
-        # writing tree and too scared to fix it right now
         if sample[self.classifier[0]]:
             if self.depth > 1:
                 # TODO: finish this
@@ -142,31 +149,148 @@ class DecisionTree:
 
 
 
-# plan:
-# root node has depth
-# uses given mutation to classify data
-# classifies subsets of data, finding next two classifiers
-# creates child nodes with depth-1 -> repeat the process
-# if depth = 1: stop
 
-# methods:
-#   segregate_data:
-#     given a mutation: do the training samples have cancer or not
-#
-#   generate_confusion_matrix
-#
-#   classify:
-#     take in a sample and pass it recursively through the tree:
-#     If it has the mutation in the current node:
-#       If depth is not 1:
-#         Call classify on right node with sample
-#       Else:
-#         Return Cancer
-#     If it does not have the mutation in the current node:
-#       If depth is not 1:
-#         Call classify on the left node with sample
-#       Else:
-#         Return Non-Cancer
-#     
-#
-#   
+################################################################################
+################################################################################
+################################################################################
+
+
+
+class DecisionTreePhi:
+    def __init__(self, data, depth, classifier=None, remove_used=False, root=True):
+        self.data = data
+        self.classifier = classifier
+        self.depth = depth
+        self.root = root
+        self.positives = None
+        self.negatives = None
+        self.class_negative_cancerous = None
+        self.class_positive_cancerous = None
+        
+        # root node setup:
+        if self.classifier == None:
+            # find the best classifier
+            # matrices = self.__generate_confusion_matrices(self.data)
+            # self.classifier = self.__get_next_classifier(matrices)
+            self.classifier = self.__get_next_classifier()
+            
+        # segregate the data using the classifier
+        # self.positives, self.negatives = self.__segregate_data(self.data[self.classifier])
+
+        if depth > 1:
+            positive_data = self.data.drop(self.positives.values, axis=0)
+            negative_data = self.data.drop(self.negatives.values, axis=0)
+            self.right = DecisionTreePhi(positive_data, self.depth - 1, root=False)
+            self.left = DecisionTreePhi(negative_data, self.depth-1, root=False)
+        else:
+            self.right = None
+            self.Left = None
+
+
+    def classify(self, sample):
+        if sample[self.classifier]:
+            if self.depth > 1:
+                # TODO: finish this
+                return self.right.classify(sample)
+            else:
+                return self.class_positive_cancerous
+        else:
+            if self.depth > 1:
+                return self.left.classify(sample)
+            else:
+                return self.class_negative_cancerous
+
+
+    def __segregate_data(self, mutation_of_interest):
+        """Discern whether a sample tests as positive or negative given a mutation"""
+        positive = []
+        negative = []
+        samples = mutation_of_interest.index
+
+        for idx, val in enumerate(mutation_of_interest.values):
+            positive.append(samples[idx]) if (val == 1) else negative.append(samples[idx])
+
+        return positive, negative
+    
+
+
+
+    def __get_next_classifier(self):
+        """find the best mutation to use to classify cancer based on true and false 
+        positives"""
+        
+
+        frame_columns=['n(t_l)', 'n(t_r)', 'n(t_l, C)', 'n(t_l, NC)', 'n(t_r, C)', 'n(t_r, NC)', 'P_l', 'P_r', 'P(C | t_l)', \
+                       'P(NC | t_l)', 'P(C | t_r)', 'P(NC | t_r)', '2*P_l*P_r', 'Q', 'Phi(s, t)']
+        
+        selection_frame = pd.DataFrame(columns=frame_columns)
+        
+        classified_positive = self.data.apply(lambda x: x[x==1].index, axis=0)
+        classified_negative = self.data.apply(lambda x: x[x==0].index, axis=0)
+        
+        # get the number of samples in each tree
+        selection_frame['n(t_r)'] = classified_positive.apply(lambda x: 1 if (x.size < 1) else x.size)
+        selection_frame['n(t_l)'] = classified_negative.apply(lambda x: 1 if (x.size < 1) else x.size)
+
+        # selection_frame['n(t_r)'] = selection_frame.apply(lambda x: 1 if x.loc['n(t_r)'] == 0 else x.loc['n(t_r)'], axis=1)
+        # selection_frame['n(t_r)'] = selection_frame.apply(lambda x: 1 if x.loc['n(t_l)'] == 0 else x.loc['n(t_l)'], axis=1)
+
+        # get the number of cancer and non-cancer in the left tree (fp and tn in this tree)
+        selection_frame['n(t_l, C)'] = classified_negative.apply(lambda x: x[x.str.startswith('C')].size)
+        selection_frame['n(t_l, NC)'] = classified_negative.apply(lambda x: x[x.str.startswith('NC')].size)
+
+        # get the number of cancer and non-cancer in the left tree (fp and tn in this tree)
+        selection_frame['n(t_r, C)'] = classified_positive.apply(lambda x: x[x.str.startswith('C')].size)
+        selection_frame['n(t_r, NC)'] = classified_positive.apply(lambda x: x[x.str.startswith('NC')].size)
+
+        # get the probability of being in the left or right tree at this split
+        selection_frame['P_l'] = selection_frame.apply(lambda x: x['n(t_l)'] / self.data.shape[0], axis=1)
+        selection_frame['P_r'] = selection_frame.apply(lambda x: x['n(t_r)'] / self.data.shape[0], axis=1)
+        
+        # probability of having cancer and non-cancer in the left tree 
+        selection_frame['P(C | t_l)'] = selection_frame.apply(lambda x: x['n(t_l, C)'] / x['n(t_l)'], axis=1)
+        selection_frame['P(NC | t_l)'] = selection_frame.apply(lambda x: x['n(t_l, NC)'] / x['n(t_l)'], axis=1)
+        
+        # probability of having cancer and non-cancer in the right tree
+        selection_frame['P(C | t_r)'] = selection_frame.apply(lambda x: x['n(t_r, C)'] / x['n(t_r)'], axis=1)
+        selection_frame['P(NC | t_r)'] = selection_frame.apply(lambda x: x['n(t_r, NC)'] / x['n(t_r)'], axis=1)
+        
+        # balance
+        selection_frame['2*P_l*P_r'] = selection_frame.apply(lambda x: 2 * x['P_l'] * x['P_r'], axis=1)
+        
+        # purity
+        selection_frame['Q'] = selection_frame.apply(lambda x: abs(x['P(C | t_l)'] - x['P(C | t_r)']) + abs(x['P(NC | t_l)'] - x['P(NC | t_r)']), axis = 1)
+        
+        selection_frame['Phi(s, t)'] = selection_frame.apply(lambda x: x['2*P_l*P_r'] * x['Q'], axis=1)
+        
+        selection_frame = selection_frame.sort_values(by='Phi(s, t)', ascending=False)
+
+        name = selection_frame.iloc[0,:].name
+
+        if self.root:
+            n_t = self.data.shape[0]
+            n_tc = len(self.data[self.data.index.str.startswith('C')])
+            n_tnc = len(self.data[self.data.index.str.startswith('NC')])
+            print('n_t: ', n_t)
+            print('n_tc: ', n_tc)
+            print('n_tnc: ', n_tnc)
+            print('p_ct: ', n_tc / n_t)
+            print('p_nct: ', n_tnc / n_t)
+            print(selection_frame.head(n=10))
+            
+
+
+        self.positives = classified_positive[name]
+        self.negatives = classified_negative[name]
+
+        self.class_negative_cancerous = selection_frame.loc[name, 'n(t_l, C)'] > selection_frame.loc[name, 'n(t_l, NC)']
+        self.class_positive_cancerous = selection_frame.loc[name, 'n(t_r, C)'] > selection_frame.loc[name, 'n(t_r, NC)']
+
+        return name
+
+
+    def __str__(self):
+        return '{ ' + self.classifier\
+            + '\n{ ' + (str(self.left) if self.depth > 1 else 'NC') + ' }'\
+            + '\n{ ' + (str(self.right) if self.depth > 1 else 'C') + ' }'\
+            + '\n}'
