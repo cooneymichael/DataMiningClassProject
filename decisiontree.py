@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from math import log
 
 import warnings
 
@@ -219,7 +220,7 @@ class DecisionTreePhi:
         """find the best mutation to use to classify cancer based on true and false 
         positives"""
         
-
+        
         frame_columns=['n(t_l)', 'n(t_r)', 'n(t_l, C)', 'n(t_l, NC)', 'n(t_r, C)', 'n(t_r, NC)', 'P_l', 'P_r', 'P(C | t_l)', \
                        'P(NC | t_l)', 'P(C | t_r)', 'P(NC | t_r)', '2*P_l*P_r', 'Q', 'Phi(s, t)']
         
@@ -294,3 +295,131 @@ class DecisionTreePhi:
             + '\n{ ' + (str(self.left) if self.depth > 1 else 'NC') + ' }'\
             + '\n{ ' + (str(self.right) if self.depth > 1 else 'C') + ' }'\
             + '\n}'
+
+
+
+################################################################################
+################################################################################
+################################################################################
+
+
+class DecisionTreeGain:
+    def __init__(self, data, depth):
+        self.data = data
+        self.depth = depth
+        self.tree = [0 for i in range((2**depth)-1)]
+        
+        # pseudo code/requirements:
+        # each node will contain:
+        #  name: feature name
+        #  classification: True or False
+        #  positive_data: elements of data classified as positive
+        #  negative_data: elements of data classified as negative
+
+        for i in range(len(self.tree)):
+            self.tree[i] = self.__get_next_classifier(self.data)
+
+
+    def __get_next_classifier(self, data):
+        # create selection_frame
+        # for each feature:
+        #  calculate number of samples in left and right
+        #  
+        # find the top one, return name
+        frame_columns=['n(t)', 'n(t, C)', 'n(t, NC)', 'n(t_l)', 'n(t_r)', 'n(t_l, C)', \
+                       'n(t_l, NC)', 'n(t_r, C)', 'n(t_r, NC)', 'P_l', 'P_r', 'H(s, t)',\
+                       'H(t_l)', 'H(t_r)', 'H(t)', 'gain(s)']
+        
+        selection_frame = pd.DataFrame(columns=frame_columns)
+
+        # get the number of samples in this node
+        selection_frame['n(t)'] = data.apply(lambda x: data.shape[0])
+
+        # get the number of cancer and non-cancer in this node
+        num_cancer = data[data.index.str.startswith('C')].shape[0]
+        num_non_cancer = data[data.index.str.startswith('NC')].shape[0]
+        selection_frame['n(t, C)'] = selection_frame.apply(lambda x: num_cancer, axis=1)
+        selection_frame['n(t, NC)'] = selection_frame.apply(lambda x: num_non_cancer, axis=1)
+
+        classified_positive = data.apply(lambda x: x[x==1].index, axis=0)
+        classified_negative = data.apply(lambda x: x[x==0].index, axis=0)
+        # print(classified_negative.apply(lambda x: x.size))
+
+        # get the number of samples in each tree
+        selection_frame['n(t_r)'] = classified_positive.apply(lambda x: 1 if (x.size < 1) else x.size)
+        selection_frame['n(t_l)'] = classified_negative.apply(lambda x: 1 if (x.size < 1) else x.size)
+
+        # get the number of cancer and non-cancer in the left tree (fp and tn in this tree)
+        selection_frame['n(t_l, C)'] = \
+            classified_negative.apply(lambda x: 1 if (x[x.str.startswith('C')].size < 1) \
+                                      else x[x.str.startswith('C')].size)
+        selection_frame['n(t_l, NC)'] = \
+            classified_negative.apply(lambda x: 1 if (x[x.str.startswith('NC')].size < 1) \
+                                      else x[x.str.startswith('NC')].size)
+
+        # get the number of cancer and non-cancer in the left tree (fp and tn in this tree)
+        selection_frame['n(t_r, C)'] = \
+            classified_positive.apply(lambda x: 1 if (x[x.str.startswith('C')].size < 1) \
+                                      else x[x.str.startswith('C')].size)
+        selection_frame['n(t_r, NC)'] = \
+            classified_positive.apply(lambda x: 1 if (x[x.str.startswith('NC')].size < 1) \
+                                      else x[x.str.startswith('NC')].size)
+
+        # get the probability of being in the left or right tree at this split
+        selection_frame['P_l'] = \
+            selection_frame.apply(lambda x: x['n(t_l)'] / self.data.shape[0], axis=1)
+        selection_frame['P_r'] = \
+            selection_frame.apply(lambda x: x['n(t_r)'] / self.data.shape[0], axis=1)
+
+        # find H(t_l)
+        selection_frame['H(t_l)'] = \
+            selection_frame.apply(lambda x: -1 \
+                                  * ((x['n(t_l, C)'] / x['n(t_l)'] \
+                                      * log(x['n(t_l, C)'] / x['n(t_l)'], 2))\
+                                     + (x['n(t_l, NC)'] / x['n(t_l)'] \
+                                        * log(x['n(t_l, NC)'] / x['n(t_l)'], 2))), axis=1)
+
+        # find H(t_r) (not an accurate name)
+        selection_frame['H(t_r)'] = \
+            selection_frame.apply(lambda x: -1 \
+                                  * ((x['n(t_r, C)'] / x['n(t_r)'] \
+                                      * log(x['n(t_r, C)'] / x['n(t_r)'], 2))\
+                                     + (x['n(t_r, NC)'] / x['n(t_r)'] \
+                                        * log(x['n(t_r, NC)'] / x['n(t_r)'], 2))), axis=1)
+
+
+        # find H(t,s), the entropy of this split at this feature
+        selection_frame['H(s, t)'] = \
+            selection_frame.apply(lambda x: (x['P_l'] * x['H(t_l)']) \
+                                  + (x['P_r'] * x['H(t_r)']), axis=1)
+
+        # find H(t), the entropy at this node
+        selection_frame['H(t)'] = \
+            selection_frame.apply(lambda x: -1 \
+                                  * ((x['n(t, C)'] / x['n(t)'] \
+                                      * log(x['n(t, C)'] / x['n(t)'], 2))\
+                                     +(x['n(t, NC)'] / x['n(t)'] \
+                                       * log(x['n(t, NC)'] / x['n(t)'], 2))), axis=1)
+        selection_frame['gain(s)'] = \
+            selection_frame.apply(lambda x: x['H(t)'] - x['H(s, t)'], axis=1)
+
+        selection_frame = selection_frame.sort_values(by='gain(s)', ascending=False)
+
+        name = selection_frame.iloc[0,:].name
+        return name
+
+    def classify(self, sample):
+        """Determine if a given input sample has cancer or not according to our tree"""
+        i = 0
+        while(i < (2**self.depth) / 2):
+            if sample[self.classifier]:
+                # has mutation, go to right child
+                i = (2 * i) + 2
+            else:
+                # lacks mutation, go to left child
+                i = (2 * i) + 1
+        return self.tree[i].classification
+
+    def __str__(self):
+        return str(self.tree)
+        return str(i) + print()
