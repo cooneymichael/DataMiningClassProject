@@ -4,8 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.text as Annotation
 import sys #for sys.argv
 import getopt
-#from decisiontree import DecisionTreePhi, DecisionTree
-from decisiontree import *
+from decisiontree import DecisionTree
 
 # forgive me for my sins
 number_of_mutations_per_sample = pd.DataFrame([])
@@ -274,7 +273,6 @@ def classify(mutation_of_interest):
 
     for idx, val in enumerate(mutation_of_interest.values):
         positive.append(samples[idx]) if (val == 1) else negative.append(samples[idx])
-    
 
     return positive, negative
 
@@ -323,13 +321,14 @@ def generate_bar_charts(data):
     # negative_classifier = get_best_classifier(negative_confusion_matrix_data, True)
 
 def make_tree(data):
-    decision_tree = DecisionTreeGain(data, 3)
-    # decision_tree = DecisionTreePhi(data, 2)
-    # decision_tree = DecisionTree(data, 2)
-    # print("========== TREE ==========")
+    decision_tree = DecisionTree(data, 2)
+    print("========== TREE ==========")
     print(decision_tree)
     return decision_tree
 
+################################################################################
+# Week 6
+################################################################################
 
 def evaluate(confusion_matrix):
     # translate our confusion matrix from booleans to tp/fp/tn/fn
@@ -360,20 +359,39 @@ def evaluate(confusion_matrix):
         else:
             classified_fn_sum += 1
             
-    accuracy = (classified_tp_sum + classified_tn_sum) / len(confusion_matrix)
+    accuracy = (classified_tp_sum + classified_tn_sum) / 230
+    print('========== Accuracy of Classifier ==========')
+    print(accuracy)
+    
     sensitivity = classified_tp_sum / (classified_tp_sum + classified_fn_sum)
+    print('========== Sensitivity of Classifier ==========')
+    print(sensitivity)
+    
     specificity = classified_tn_sum / (classified_tn_sum + classified_fp_sum)
+    print('========== Specificity of Classifier ==========')
+    print(specificity)
+    
     precision = classified_tp_sum / (classified_tp_sum + classified_fp_sum)
+    print('========== Precision of Classifier ==========')
+    print(precision)
+    
     miss_rate = 1 - sensitivity
+    print('========== Miss Rate of Classifier ==========')
+    print(miss_rate)
+    
     fdr = 1 - precision
+    print('========== False Discovery Rate of Classifier ==========')
+    print(fdr)
+    
     false_omission_rate = classified_fn_sum / (classified_fn_sum + classified_tn_sum)
-    return accuracy, sensitivity, specificity, precision, miss_rate, fdr, false_omission_rate
-
+    print('========== False Omission Rate ==========')
+    print(false_omission_rate)
+        
 
 def top_ten_accurate(matrices):
     # TODO: make evaluator class to organize/manage this and find_best code, along with
     # creation of confusion matrices
-    """accuracy == (TP + TN) / (T + N) == (TP+TN) / size of the population"""
+    """get the 10 most accurate mutations, where accuracy == (TP + TN) / (T + N) == (TP+TN) / size of the population"""
     statistics = {}
     for i in matrices:
         df = matrices[i]
@@ -383,10 +401,6 @@ def top_ten_accurate(matrices):
         statistics[i] = ((tp + fp) / 230)
     most_accurate = sorted(statistics, key=lambda x: statistics[x], reverse=True)[:10]
     return most_accurate
-    
-################################################################################
-# Week 8
-################################################################################
 
 
 def main():
@@ -405,7 +419,7 @@ def main():
     optlist = []
     if len(sys.argv) > 1:
         args = sys.argv[1:]
-        optlist, args = getopt.getopt(args, 'bcepxi', ['bar-charts', 'classify', 'eval', 'plot', 'explore', 'iterate'])
+        optlist, args = getopt.getopt(args, 'bcepx', ['bar-charts', 'classify', 'eval', 'plot', 'explore'])
     else:
         del args
         del optlist
@@ -452,118 +466,34 @@ def main():
 
             if (('--plot', '') in optlist or ('-p', '') in optlist):
                 decision_tree.plot_confusion_matrix()
-        if optlist and (('--iterate', '') in optlist or ('-i', '') in optlist):
-            # create random sets
-            set_three = data
-            set_one = set_three.sample(230//3)
-            set_two = set_three.drop(labels=list(set_one.index)).sample(230//3)
-            set_three = set_three.drop(labels=list(set_two.index)).drop(labels=list(set_one.index))
-
-            evaluation_metrics = [{} for i in range(3)]
-
-            # create trees using iterations of training and testing sets
-            for i in range(3):
-                print('================================================================================')
-                print('Iteration: ', i+1)
-                print('================================================================================')
-                training_set = None
-                testing_set = None
-                if i == 0:
-                    # training set is sets 0,1
-                    training_set = pd.concat([set_one, set_two])
-                    testing_set = set_three
-                elif i == 1:
-                    # training set is sets 1,2
-                    training_set = pd.concat([set_two, set_three])
-                    testing_set = set_one
-                else :
-                    # training set is sets 0,2
-                    training_set = pd.concat([set_one, set_three])
-                    testing_set = set_two
-
-                # print('================================================================================')
-                # print(training_set)
-                
-                # make the tree using the generated training set and begin evaluating
-                # decision_tree = make_tree(training_set)
-                
-                print('========== TPFP ==========')
-                decision_tree_tpfp = DecisionTree(data, 2)
-                print(decision_tree_tpfp)
-                print('========== Phi ==========')
-                decision_tree_phi = DecisionTreePhi(data, 2)
-                print(decision_tree_phi)
-                print('========== Gain ==========')
-                decision_tree_gain = DecisionTreeGain(data, 3)
-                print(decision_tree_gain)
-
-                # begin passing in test values, then compare to the source of truth to
-                # find tp, tn, fp, fn and statistics
-                confusion_matrices = [{} for k in range(3)]
-                for k in testing_set.index:
-                    classification_tpfp = decision_tree_tpfp.classify(testing_set.loc[k, :])
-                    classification_phi = decision_tree_phi.classify(testing_set.loc[k, :])
-                    classification_gain = decision_tree_gain.classify(testing_set.loc[k, :])
-                    
-                    confusion_matrices[0][k] = classification_tpfp
-                    confusion_matrices[1][k] = classification_phi
-                    confusion_matrices[2][k] = classification_gain
-
-                # put each tree's results in a data frame for legible output
-                for k in range(len(confusion_matrices)):
-                    (accuracy, sensitivity, specificity, precision, miss_rate, fdr, false_omission_rate) = evaluate(confusion_matrices[k])
-                    tree_name = ''
-                    if k == 0:
-                        tree_name = 'tpfp'
-                    elif k == 1:
-                        tree_name = 'phi'
-                    else:
-                        tree_name = 'gain'
-                    evaluation_metrics[i][tree_name] = [accuracy, sensitivity, \
-                                                        specificity, precision, \
-                                                        miss_rate, fdr, \
-                                                        false_omission_rate]
-
-                comparison_frame = pd.DataFrame.from_dict(evaluation_metrics[i])
-                comparison_frame.index = ['accuracy', 'sensitivity', 'specificity', 'precision', 'miss_rate', 'FDR', 'FOR']
-                print(comparison_frame)
-
-
-            print('========== Average Metrics ==========')
-            tpfp_avgs = [0 for i in range(7)]
-            phi_avgs = [0 for i in range(7)]
-            gain_avgs = [0 for i in range(7)]
-            for i in range(len(evaluation_metrics)):
-                for j in range(len(evaluation_metrics[i]['tpfp'])):
-                    tpfp_avgs[j] += evaluation_metrics[i]['tpfp'][j]
-                    phi_avgs[j] += evaluation_metrics[i]['phi'][j]
-                    gain_avgs[j] += evaluation_metrics[i]['gain'][j]
-            for i in range(len(tpfp_avgs)):
-                tpfp_avgs[i] = tpfp_avgs[i] / 3
-                phi_avgs[i] = phi_avgs[i] / 3
-                gain_avgs[i] = gain_avgs[i] / 3
-            print('     Accuracy, Sensitivity, Specificity, Precision, Miss Rate, FDR, FOR')
-            print('TPFP: ', tpfp_avgs)
-            print('Phi: ', phi_avgs)
-            print('Gain: ', gain_avgs)
             
     plt.show()
     # end main
 
     
-
-
 if __name__ == '__main__':
         main()
 
 
 
-# Randomly gen 3 sets from data (shuffle) (df.sample())
-# In a for loop:
-# do all permutations ->  just hard code it based on value of iteration
-# combine groups into df
-# make tree using training set
-# test using test set
-# use evaluator to compare results
-# calculate statistics
-# repeat
+        
+# def classification_algo(classifier_list, sample):
+#     """Takes in a list of classifiers and a sample.  A return value of True 
+#     denotes cancer, a return value of False denotes no cancer"""
+#     if sample[classifier_list[0]]:
+#         if sample[classifier_list[1]]:
+#             return True
+#         else:
+#             return False
+#     else:
+#         if sample[classifier_list[2]]:
+#             return True
+#         else:
+#             return False
+
+
+################################################################################
+# New plan:
+# make a binary tree as my decision tree because I don't want to hard code it
+# or should I hard code it to make it faster?
+# binary tree is easier to extend/re-train

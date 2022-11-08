@@ -37,8 +37,8 @@ class DecisionTree:
             negative_classifier = self.__get_next_classifier(negative_confusion_matrix_data)
 
         if depth > 1:
-            positive_data = self.data.drop(self.positives.values, axis=0)
-            negative_data = self.data.drop(self.negatives.values, axis=0)
+            positive_data = self.data.drop(negatives, axis=0)
+            negative_data = self.data.drop(positives, axis=0)
             self.right = DecisionTree(positive_data, self.depth - 1, classifier=positive_classifier)
             self.left = DecisionTree(negative_data, self.depth-1, classifier=negative_classifier)
         else:
@@ -308,7 +308,7 @@ class DecisionTreeGain:
         self.data = data
         self.depth = depth
         self.tree = [0 for i in range((2**depth)-1)]
-        
+        self.leaf_start = (2**(self.depth-1))-1
         # pseudo code/requirements:
         # each node will contain:
         #  name: feature name
@@ -317,10 +317,38 @@ class DecisionTreeGain:
         #  negative_data: elements of data classified as negative
 
         for i in range(len(self.tree)):
-            self.tree[i] = self.__get_next_classifier(self.data)
+            self.tree[i] = {'data': None, 'name': 'leaf', 'classification': None, \
+                            'positive_data': None, 'negative_data': None}
 
+        for i in range(len(self.tree)):
+            if i == 0:
+                self.tree[i]['data'] = self.data
 
-    def __get_next_classifier(self, data):
+            # not in leaf nodes yet, or in single node tree
+            if i < self.leaf_start:
+                (name, positive, negative) = \
+                    self.__get_next_classifier(self.tree[i]['data'], i)
+                self.tree[i]['name'] = name
+
+            # not in leaf nodes yet, and not a single node tree
+            if self.depth > 1 and i < self.leaf_start:
+                # left child, classified negative
+                self.tree[(2*i)+1]['data'] = data.drop(positive)
+                # right child, classified positive
+                self.tree[(2*i)+2]['data'] = data.drop(negative)
+
+            # leaf nodes
+            if i >= self.leaf_start:
+                # determine if we are a cancer node or not
+                self.tree[i]['classification'] = \
+                    self.__derive_classification(self.tree[i]['data'])
+
+    def __derive_classification(self, data):
+        num_cancer = data[data.index.str.startswith('C')].shape[0]
+        num_non_cancer = data[data.index.str.startswith('NC')].shape[0]
+        return num_cancer >= num_non_cancer
+
+    def __get_next_classifier(self, data, tree_index):
         # create selection_frame
         # for each feature:
         #  calculate number of samples in left and right
@@ -339,15 +367,17 @@ class DecisionTreeGain:
         num_cancer = data[data.index.str.startswith('C')].shape[0]
         num_non_cancer = data[data.index.str.startswith('NC')].shape[0]
         selection_frame['n(t, C)'] = selection_frame.apply(lambda x: num_cancer, axis=1)
-        selection_frame['n(t, NC)'] = selection_frame.apply(lambda x: num_non_cancer, axis=1)
+        selection_frame['n(t, NC)'] = selection_frame.apply(lambda x: num_non_cancer, \
+                                                            axis=1)
 
         classified_positive = data.apply(lambda x: x[x==1].index, axis=0)
         classified_negative = data.apply(lambda x: x[x==0].index, axis=0)
-        # print(classified_negative.apply(lambda x: x.size))
 
         # get the number of samples in each tree
-        selection_frame['n(t_r)'] = classified_positive.apply(lambda x: 1 if (x.size < 1) else x.size)
-        selection_frame['n(t_l)'] = classified_negative.apply(lambda x: 1 if (x.size < 1) else x.size)
+        selection_frame['n(t_r)'] = classified_positive.apply(lambda x: 1 if (x.size < 1) \
+                                                              else x.size)
+        selection_frame['n(t_l)'] = classified_negative.apply(lambda x: 1 if (x.size < 1) \
+                                                              else x.size)
 
         # get the number of cancer and non-cancer in the left tree (fp and tn in this tree)
         selection_frame['n(t_l, C)'] = \
@@ -405,21 +435,27 @@ class DecisionTreeGain:
 
         selection_frame = selection_frame.sort_values(by='gain(s)', ascending=False)
 
+        if tree_index == 0:
+            print(selection_frame)
+
         name = selection_frame.iloc[0,:].name
-        return name
+        return name, classified_positive[name], classified_negative[name]
 
     def classify(self, sample):
         """Determine if a given input sample has cancer or not according to our tree"""
         i = 0
-        while(i < (2**self.depth) / 2):
-            if sample[self.classifier]:
+        while i < self.leaf_start:
+            if sample[self.tree[i]['name']]:
                 # has mutation, go to right child
                 i = (2 * i) + 2
             else:
                 # lacks mutation, go to left child
                 i = (2 * i) + 1
-        return self.tree[i].classification
+        return self.tree[i]['classification']
 
     def __str__(self):
-        return str(self.tree)
-        return str(i) + print()
+        names = []
+        for i in range(len(self.tree)):
+            names.append(self.tree[i]['name'])
+        return str(names)
+        
