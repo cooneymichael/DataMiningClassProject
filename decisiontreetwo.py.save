@@ -125,15 +125,15 @@ class DecisionTreePhi(BinaryTreeArray):
 
         name = selection_frame.iloc[0,:].name
 
-        # if tree_index == 0:
-        #     n_t = self.data.shape[0]
-        #     n_tc = len(self.data[self.data.index.str.startswith('C')])
-        #     n_tnc = len(self.data[self.data.index.str.startswith('NC')])
-        #     print('n_t: ', n_t)
-        #     print('n_tc: ', n_tc)
-        #     print('n_tnc: ', n_tnc)
-        #     print('p_ct: ', n_tc / n_t)
-        #     print('p_nct: ', n_tnc / n_t)
-        #     print(selection_frame.head(n=10))
+        if tree_index == 0:
+            n_t = self.data.shape[0]
+            n_tc = len(self.data[self.data.index.str.startswith('C')])
+            n_tnc = len(self.data[self.data.index.str.startswith('NC')])
+            print('n_t: ', n_t)
+            print('n_tc: ', n_tc)
+            print('n_tnc: ', n_tnc)
+            print('p_ct: ', n_tc / n_t)
+            print('p_nct: ', n_tnc / n_t)
+            print(selection_frame.head(n=10))
         return name, classified_positive[name], classified_negative[name]
         
