@@ -193,6 +193,12 @@ class DecisionTreePhi:
             self.right = None
             self.Left = None
 
+            # classified_negative.apply(lambda x: x[x.str.startswith('C')].size)
+            num_pos = self.data[self.data.index.str.startswith('C')].shape[0]
+            num_neg = self.data[self.data.index.str.startswith('NC')].shape[0]
+            self.class_negative_cancerous = num_neg > num_pos
+            self.class_positive_cancerous = num_pos >= num_neg
+
 
     def classify(self, sample):
         if sample[self.classifier]:
@@ -289,18 +295,23 @@ class DecisionTreePhi:
         
         selection_frame = selection_frame.sort_values(by='Phi(s, t)', ascending=False)
 
+        
+
         name = selection_frame.iloc[0,:].name
 
         if self.root:
-            n_t = self.data.shape[0]
-            n_tc = len(self.data[self.data.index.str.startswith('C')])
-            n_tnc = len(self.data[self.data.index.str.startswith('NC')])
-            print('n_t: ', n_t)
-            print('n_tc: ', n_tc)
-            print('n_tnc: ', n_tnc)
-            print('p_ct: ', n_tc / n_t)
-            print('p_nct: ', n_tnc / n_t)
             print(selection_frame.head(n=10))
+            print(name)
+        # if self.root:
+        #     n_t = self.data.shape[0]
+        #     n_tc = len(self.data[self.data.index.str.startswith('C')])
+        #     n_tnc = len(self.data[self.data.index.str.startswith('NC')])
+        #     print('n_t: ', n_t)
+        #     print('n_tc: ', n_tc)
+        #     print('n_tnc: ', n_tnc)
+        #     print('p_ct: ', n_tc / n_t)
+        #     print('p_nct: ', n_tnc / n_t)
+        #     print(selection_frame.head(n=10))
             
 
 
@@ -315,6 +326,11 @@ class DecisionTreePhi:
             selection_frame.loc[name, 'n(t_r, C)'] > \
             selection_frame.loc[name, 'n(t_r, NC)']
 
+        # print('==========')
+        # print(selection_frame.loc[name, 'n(t_r, C)'])
+        # print(selection_frame.loc[name, 'n(t_r, NC)'])
+        # print(selection_frame.loc[name, 'n(t_r, C)'] > \
+        #     selection_frame.loc[name, 'n(t_r, NC)'])
         return name
 
 

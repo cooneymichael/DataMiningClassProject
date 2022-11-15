@@ -323,8 +323,8 @@ def generate_bar_charts(data):
     # negative_classifier = get_best_classifier(negative_confusion_matrix_data, True)
 
 def make_tree(data):
-    decision_tree = DecisionTreeGain(data, 3)
-    # decision_tree = DecisionTreePhi(data, 2)
+    # decision_tree = DecisionTreeGain(data, 3)
+    decision_tree = DecisionTreePhi(data, 2)
     # decision_tree = DecisionTree(data, 2)
     # print("========== TREE ==========")
     print(decision_tree)
@@ -345,7 +345,6 @@ def evaluate(confusion_matrix):
     # false discovery rate, and false omission rate
     # we also need to plot a confusion matrix
         
-    # accuracy -> Sum of all tn and fp, divided by total population
     classified_tp_sum = 0
     classified_tn_sum = 0
     classified_fp_sum = 0
@@ -353,20 +352,33 @@ def evaluate(confusion_matrix):
     for i in confusion_matrix:
         if confusion_matrix[i] == 'tp':
             classified_tp_sum += 1
+            print('+', end='')
         elif confusion_matrix[i] == 'tn':
             classified_tn_sum += 1
+            print('-', end='')
         elif confusion_matrix[i] == 'fp':
             classified_fp_sum += 1
+            print('!', end='')
         else:
             classified_fn_sum += 1
+            print('#', end='')
+
+    print(classified_tp_sum) #0
+    print(classified_tn_sum) #49
+    print(classified_fp_sum) #0
+    print(classified_fn_sum) #29
             
     accuracy = (classified_tp_sum + classified_tn_sum) / len(confusion_matrix)
-    sensitivity = classified_tp_sum / (classified_tp_sum + classified_fn_sum)
-    specificity = classified_tn_sum / (classified_tn_sum + classified_fp_sum)
-    precision = classified_tp_sum / (classified_tp_sum + classified_fp_sum)
+    denom_sens = 1 if (classified_tp_sum + classified_fn_sum == 0) else (classified_tp_sum + classified_fn_sum)
+    sensitivity = classified_tp_sum / denom_sens
+    denom_spec = 1 if (classified_tn_sum + classified_fp_sum == 0) else (classified_tn_sum + classified_fp_sum)
+    specificity = classified_tn_sum / denom_spec
+    denom_prec = 1 if (classified_tp_sum + classified_fp_sum == 0) else (classified_tp_sum + classified_fp_sum)
+    precision = classified_tp_sum / denom_prec
     miss_rate = 1 - sensitivity
     fdr = 1 - precision
-    false_omission_rate = classified_fn_sum / (classified_fn_sum + classified_tn_sum)
+    denom = 1 if (classified_fn_sum + classified_tn_sum == 0) else (classified_fn_sum + classified_tn_sum)
+    false_omission_rate = classified_fn_sum / denom
     return accuracy, sensitivity, specificity, precision, miss_rate, fdr, false_omission_rate
 
 
