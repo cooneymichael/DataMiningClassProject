@@ -193,7 +193,7 @@ class DecisionTreePhi:
             self.right = None
             self.Left = None
 
-            # classified_negative.apply(lambda x: x[x.str.startswith('C')].size)
+            # determine the classification schema if we are in the leaf nodes
             num_pos = self.data[self.data.index.str.startswith('C')].shape[0]
             num_neg = self.data[self.data.index.str.startswith('NC')].shape[0]
             self.class_negative_cancerous = num_neg > num_pos
@@ -212,20 +212,6 @@ class DecisionTreePhi:
                 return self.left.classify(sample)
             else:
                 return self.class_negative_cancerous
-
-
-    # def __segregate_data(self, mutation_of_interest):
-    #     """Discern whether a sample tests as positive or negative given a mutation"""
-    #     positive = []
-    #     negative = []
-    #     samples = mutation_of_interest.index
-
-    #     for idx, val in enumerate(mutation_of_interest.values):
-    #         positive.append(samples[idx]) if (val == 1) else negative.append(samples[idx])
-
-    #     return positive, negative
-    
-
 
 
     def __get_next_classifier(self):
@@ -299,9 +285,6 @@ class DecisionTreePhi:
 
         name = selection_frame.iloc[0,:].name
 
-        if self.root:
-            print(selection_frame.head(n=10))
-            print(name)
         # if self.root:
         #     n_t = self.data.shape[0]
         #     n_tc = len(self.data[self.data.index.str.startswith('C')])
@@ -318,19 +301,14 @@ class DecisionTreePhi:
         self.positives = classified_positive[name]
         self.negatives = classified_negative[name]
 
-        self.class_negative_cancerous = \
-            selection_frame.loc[name, 'n(t_l, C)'] > \
-            selection_frame.loc[name, 'n(t_l, NC)']
+        # self.class_negative_cancerous = \
+        #     selection_frame.loc[name, 'n(t_l, C)'] > \
+        #     selection_frame.loc[name, 'n(t_l, NC)']
 
-        self.class_positive_cancerous = \
-            selection_frame.loc[name, 'n(t_r, C)'] > \
-            selection_frame.loc[name, 'n(t_r, NC)']
+        # self.class_positive_cancerous = \
+        #     selection_frame.loc[name, 'n(t_r, C)'] > \
+        #     selection_frame.loc[name, 'n(t_r, NC)']
 
-        # print('==========')
-        # print(selection_frame.loc[name, 'n(t_r, C)'])
-        # print(selection_frame.loc[name, 'n(t_r, NC)'])
-        # print(selection_frame.loc[name, 'n(t_r, C)'] > \
-        #     selection_frame.loc[name, 'n(t_r, NC)'])
         return name
 
 

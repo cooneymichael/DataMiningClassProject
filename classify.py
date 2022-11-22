@@ -352,22 +352,13 @@ def evaluate(confusion_matrix):
     for i in confusion_matrix:
         if confusion_matrix[i] == 'tp':
             classified_tp_sum += 1
-            print('+', end='')
         elif confusion_matrix[i] == 'tn':
             classified_tn_sum += 1
-            print('-', end='')
         elif confusion_matrix[i] == 'fp':
             classified_fp_sum += 1
-            print('!', end='')
         else:
             classified_fn_sum += 1
-            print('#', end='')
 
-    print(classified_tp_sum) #0
-    print(classified_tn_sum) #49
-    print(classified_fp_sum) #0
-    print(classified_fn_sum) #29
-            
     accuracy = (classified_tp_sum + classified_tn_sum) / len(confusion_matrix)
     denom_sens = 1 if (classified_tp_sum + classified_fn_sum == 0) else (classified_tp_sum + classified_fn_sum)
     sensitivity = classified_tp_sum / denom_sens

@@ -43,12 +43,18 @@ class DecisionTreePhi(BinaryTreeArray):
             # leaf nodes
             if i >= self.leaf_start:
                 # determine if we are cancer node or not
+                print('==========')
+                print(i)
                 self.tree[i]['classification'] = \
                     self.__derive_classification(self.tree[i]['data'])
 
     def __derive_classification(self, data):
         num_cancer = data[data.index.str.startswith('C')].shape[0]
         num_non_cancer = data[data.index.str.startswith('NC')].shape[0]
+        print('C', num_cancer)
+        print('NC:', num_non_cancer)
+        print(data[data.index.str.startswith('C')].shape[0])
+        print(data[data.index.str.startswith('NC')].shape[0])
         return num_cancer >= num_non_cancer
 
     def classify(self, sample):
