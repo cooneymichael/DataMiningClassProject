@@ -55,7 +55,7 @@ def evaluate(confusion_matrix):
     return accuracy
 
 
-decision_tree = dt.DecisionTreePhi(data=data, depth=2)
+decision_tree = dt.DecisionTreePhi(data=data, depth=3)
 # decision_tree = dt.DecisionTreeGain(data = data, depth = 3)
 # decision_tree = dt.DecisionTree(data, 2)
 
@@ -70,7 +70,6 @@ for k in data.index:
 # (accuracy, sensitivity, specificity, precision, miss_rate, fdr, false_omission_rate) = evaluate(confusion_matrix)
 accuracy = evaluate(confusion_matrix)
 
-print(accuracy)
-
-
 print(decision_tree)
+print('==================================================')
+print(accuracy)

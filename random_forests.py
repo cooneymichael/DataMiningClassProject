@@ -79,7 +79,7 @@ def main():
         mutations = get_features(data)
         data_set = data.loc[samples, mutations]
         out_of_bag = data.drop(index=samples, columns=mutations)
-        decision_tree = DecisionTreePhi(data_set, 2)
+        decision_tree = DecisionTreePhi(data_set, 10)
         trees.append(decision_tree)
         out_of_bags.append(out_of_bag)
 
