@@ -5,18 +5,18 @@ import decisiontreetwo as dt2
 data = pd.read_csv('./mutations.csv', index_col='Unnamed: 0')
 
 def evaluate(confusion_matrix):
-    print()
-    print(confusion_matrix)
-    print()
+    # print()
+    # print(confusion_matrix)
+    # print()
     # translate our confusion matrix from booleans to tp/fp/tn/fn
     for i in confusion_matrix:
         if i.startswith('NC'):
             confusion_matrix[i] = 'tn' if confusion_matrix[i] == False else 'fp'
         else:
             confusion_matrix[i] = 'tp' if confusion_matrix[i] == True else 'fn'
-    print()
-    print(confusion_matrix)
-    print()            
+    # print()
+    # print(confusion_matrix)
+    # print()            
             
     # after classifying everything, we need to determine:
     # accuracy, sensitivity, specificity, precision, miss rate,
@@ -43,7 +43,7 @@ def evaluate(confusion_matrix):
         else:
             classified_fn_sum += 1
 
-    print('LENGTH:',len(confusion_matrix))
+    # print('LENGTH:',len(confusion_matrix))
     accuracy = (classified_tp_sum + classified_tn_sum) / len(confusion_matrix)
     # sensitivity = classified_tp_sum / (classified_tp_sum + classified_fn_sum)
     # specificity = classified_tn_sum / (classified_tn_sum + classified_fp_sum)
@@ -55,7 +55,8 @@ def evaluate(confusion_matrix):
     return accuracy
 
 
-decision_tree = dt.DecisionTreePhi(data=data, depth=3)
+# decision_tree = dt.DecisionTreePhi(data=data, depth=3)
+decision_tree = dt.DecisionTreePhiNP(data=data, depth=5)
 # decision_tree = dt.DecisionTreeGain(data = data, depth = 3)
 # decision_tree = dt.DecisionTree(data, 2)
 

@@ -37,33 +37,42 @@ class DecisionTree:
             print('KeyError: classifier', self.classifier, 'is not in the sample')
         
     def __str__(self):
-        return '{ ' + self.classifier\
-            + '\n{ ' + (str(self.left) if self.depth > 1 else 'NC') + ' }'\
-            + '\n{ ' + (str(self.right) if self.depth > 1 else 'C') + ' }'\
-            + '\n}'
+        return ('\t' * self.depth) + self.classifier + '\n'\
+            + (str(self.left) if self.depth > 1 else 'NC') + '\n'\
+            + (str(self.right) if self.depth > 1 else 'C') + '\n'
+
+        # return '{ ' + self.classifier\
+        #     + '\n{ ' + (str(self.left) if self.depth > 1 else 'NC') + ' }'\
+        #     + '\n{ ' + (str(self.right) if self.depth > 1 else 'C') + ' }'\
+        #     + '\n}'
 
 
 class DecisionTreePhi(DecisionTree):
-    def __init__(self, data, depth, subset=None, root=True):
+    def __init__(self, data, depth, sample_subset=None, mut_subset=None, root=True):
         super().__init__(data, depth)
         self.root = root
         if self.root:
-            self.subset = []
+            self.mut_subset = []
+            self.sample_subset = self.data
         else:
-            self.subset = deepcopy(subset)
+            self.mut_subset = deepcopy(mut_subset)
+            self.sample_subset = sample_subset
 
         if self.classifier == None:
             # find the best classifier
+            print('classifying:', self.depth)
             self.classifier = self.__get_next_classifier()
 
         if self.depth > 1:
             # not in the leaf nodes
-            # positive_data = self.data.drop(self.negatives.values, axis=0)
-            # negative_data = self.data.drop(self.positives.values, axis=0)
+            positive_data = self.data.drop(self.negatives.values, axis=0)
+            negative_data = self.data.drop(self.positives.values, axis=0)
             self.right = \
-                DecisionTreePhi(self.data, depth-1, subset=self.subset, root=False)
+                DecisionTreePhiNP(self.data, depth-1, sample_subset=positive_data,\
+                                  mut_subset=self.mut_subset, root=False)
             self.left = \
-                DecisionTreePhi(self.data, depth-1, subset=self.subset, root=False)
+                DecisionTreePhiNP(self.data, depth-1, sample_subset=negative_data,\
+                                  mut_subset=self.mut_subset, root=False)
             
         else:
             num_positive = self.data[self.data.index.str.startswith('C')].shape[0]
@@ -74,113 +83,285 @@ class DecisionTreePhi(DecisionTree):
     def __get_next_classifier(self):
         """find the best mutation to use to classify cancer based on true and false 
         positives"""
-        
+
+        NT_R = 0         # number of samples in right subtree
+        NT_L = 1         # number of samples in left subtree
+        NT_R_C = 2       # number of cancer samples in right subtree
+        NT_R_NC = 3      # number of non-cancer samples in right subtree
+        NT_L_C = 4       # number of cancer samples in left subtree
+        NT_L_NC = 5      # number of non-cancer samples in left subtree
+        P_R = 6          # probability of sample being in right subtree
+        P_L = 7          # probability of sample being in left subtree
+        P_C_T_R = 8      # probability of cancer sample being in right subtree
+        P_NC_T_R = 9     # probability of non-cancer sample being in right subtree
+        P_C_T_L = 10     # probability of cancer sample being in left subtree
+        P_NC_T_L = 11    # probability of non-cancer sample being in left subtree
+        BALANCE = 12     # the balance of a given split
+        Q = 13           # purity of the split
+        PHI = 14         # the phi value for each mutation splitting
+
         frame_columns=['n(t_l)', 'n(t_r)', 'n(t_l, C)', 'n(t_l, NC)', 'n(t_r, C)',\
                        'n(t_r, NC)', 'P_l', 'P_r', 'P(C | t_l)', 'P(NC | t_l)', \
                        'P(C | t_r)', 'P(NC | t_r)', '2*P_l*P_r', 'Q', 'Phi(s, t)']
-        
-        selection_frame = pd.DataFrame(columns=frame_columns)
-        
-        classified_positive = self.data.apply(lambda x: x[x==1].index, axis=0)
-        classified_negative = self.data.apply(lambda x: x[x==0].index, axis=0)
-        
-        # get the number of samples in each tree
-        selection_frame['n(t_r)'] = \
-            classified_positive.apply(lambda x: 1 if (x.size < 1) else x.size)
-        selection_frame['n(t_l)'] = \
-            classified_negative.apply(lambda x: 1 if (x.size < 1) else x.size)
 
-        # selection_frame['n(t_r)'] = \
-        #    selection_frame.apply\
-        #    (lambda x: 1 if x.loc['n(t_r)'] == 0 else x.loc['n(t_r)'], axis=1)
-        # selection_frame['n(t_r)'] = \
-        #    selection_frame.apply\
-        #    (lambda x: 1 if x.loc['n(t_l)'] == 0 else x.loc['n(t_l)'], axis=1)
+        # rely on numpy to hopefully do things faster than pandas
+        classified_positive = self.sample_subset.apply(lambda x: x[x==1].index, axis=0)
+        classified_negative = self.sample_subset.apply(lambda x: x[x==0].index, axis=0)
+
+        selection_array = np.array([])
+        # selection_array = np.reshape(selection_array, newshape=(0, self.data.shape[1]))
+
+        # # get the number of samples in each tree
+        selection_array = np.insert(selection_array, selection_array.shape[0],\
+                                    np.vectorize(lambda x: 1 if x.size < 1 else x.size)\
+                                    (np.array(classified_positive)), axis=0)
+
+        selection_array = np.reshape(selection_array, (1, self.data.shape[1]))
+
+        selection_array = np.insert(selection_array, selection_array.shape[0],\
+                                    np.vectorize(lambda x: 1 if x.size < 1 else x.size)\
+                                    (np.array(classified_negative)), axis=0)
+
+        #get the number of cancer and non-cancer in the right tree (tp and fn in this tree)
+        selection_array = np.insert(selection_array, selection_array.shape[0],\
+                                    np.vectorize(lambda x: x[x.str.startswith('C')].size)\
+                                    (classified_positive), axis=0)
+        selection_array = np.insert(selection_array, selection_array.shape[0],\
+                                    np.vectorize(lambda x: x[x.str.startswith('NC')].size)\
+                                    (classified_positive), axis=0)
 
         # get the number of cancer and non-cancer in the left tree (fp and tn in this tree)
-        selection_frame['n(t_l, C)'] = \
-            classified_negative.apply(lambda x: x[x.str.startswith('C')].size)
-        selection_frame['n(t_l, NC)'] = \
-            classified_negative.apply(lambda x: x[x.str.startswith('NC')].size)
+        selection_array = np.insert(selection_array, selection_array.shape[0],\
+                                    np.vectorize(lambda x: x[x.str.startswith('C')].size)\
+                                    (classified_negative), axis=0)
+        selection_array = np.insert(selection_array, selection_array.shape[0],\
+                                    np.vectorize(lambda x: x[x.str.startswith('NC')].size)\
+                                    (classified_negative), axis=0)
 
-        # get the number of cancer and non-cancer in the left tree (fp and tn in this tree)
-        selection_frame['n(t_r, C)'] = \
-            classified_positive.apply(lambda x: x[x.str.startswith('C')].size)
-        selection_frame['n(t_r, NC)'] = \
-            classified_positive.apply(lambda x: x[x.str.startswith('NC')].size)
+        # # get the probability of being in the left or right tree at this split
+        selection_array = np.insert(selection_array, selection_array.shape[0],\
+                                    np.vectorize(lambda x: x/self.data.shape[0])\
+                                    (selection_array[NT_R]),axis=0)
+        selection_array = np.insert(selection_array, selection_array.shape[0],\
+                                    np.vectorize(lambda x: x/self.data.shape[0])\
+                                    (selection_array[NT_L]),axis=0)
 
-        # get the probability of being in the left or right tree at this split
-        selection_frame['P_l'] = \
-            selection_frame.apply(lambda x: x['n(t_l)'] / self.data.shape[0], axis=1)
-        selection_frame['P_r'] = \
-            selection_frame.apply(lambda x: x['n(t_r)'] / self.data.shape[0], axis=1)
-        
-        # probability of having cancer and non-cancer in the left tree 
-        selection_frame['P(C | t_l)'] = \
-            selection_frame.apply(lambda x: x['n(t_l, C)'] / x['n(t_l)'], axis=1)
-        selection_frame['P(NC | t_l)'] = \
-            selection_frame.apply(lambda x: x['n(t_l, NC)'] / x['n(t_l)'], axis=1)
-        
-        # probability of having cancer and non-cancer in the right tree
-        selection_frame['P(C | t_r)'] = \
-            selection_frame.apply(lambda x: x['n(t_r, C)'] / x['n(t_r)'], axis=1)
-        selection_frame['P(NC | t_r)'] = \
-            selection_frame.apply(lambda x: x['n(t_r, NC)'] / x['n(t_r)'], axis=1)
-        
-        # balance
-        selection_frame['2*P_l*P_r'] = \
-            selection_frame.apply(lambda x: 2 * x['P_l'] * x['P_r'], axis=1)
-        
-        # purity
-        selection_frame['Q'] = \
-            selection_frame.apply(lambda x: abs(x['P(C | t_l)'] - \
-                                                x['P(C | t_r)']) + \
-                                  abs(x['P(NC | t_l)'] - x['P(NC | t_r)']), axis = 1)
-        
-        selection_frame['Phi(s, t)'] = \
-            selection_frame.apply(lambda x: x['2*P_l*P_r'] * x['Q'], axis=1)
+        # # probability of having cancer and non-cancer in the right tree 
+        selection_array = np.insert(selection_array, selection_array.shape[0],\
+                                    np.vectorize(lambda x,y: x/y)\
+                                    (selection_array[NT_R_C], selection_array[NT_R]),\
+                                    axis=0)
+        selection_array = np.insert(selection_array, selection_array.shape[0],\
+                                    np.vectorize(lambda x,y: x/y)\
+                                    (selection_array[NT_R_NC], selection_array[NT_R]),\
+                                    axis=0)
 
-        # find the complement of self.data and self.subset, and use it to pare down
-        # selection frame to only the elements in self.subset
+        # # probability of having cancer and non-cancer in the left tree
+        selection_array = np.insert(selection_array, selection_array.shape[0],\
+                                    np.vectorize(lambda x,y: x/y)\
+                                    (selection_array[NT_L_C], selection_array[NT_L]),\
+                                    axis=0)
+        selection_array = np.insert(selection_array, selection_array.shape[0],\
+                                    np.vectorize(lambda x,y: x/y)\
+                                    (selection_array[NT_L_NC], selection_array[NT_L]),\
+                                    axis=0)
 
-        # if self.depth == 4:
-        #     print('==================================================')
-        #     print(selection_frame)
-        #     print(self.subset)
+        # # balance
+        selection_array = np.insert(selection_array, selection_array.shape[0],\
+                                    np.vectorize(lambda x,y: 2 * x * y)\
+                                    (selection_array[P_L], selection_array[P_R]),\
+                                    axis=0)
+
+        # # purity
+        selection_array = np.insert(selection_array, selection_array.shape[0],\
+                                    np.vectorize(lambda w,x,y,z: abs(w-x) + abs(y-z))\
+                                    (selection_array[P_C_T_L], selection_array[P_C_T_R],\
+                                     selection_array[P_NC_T_L],selection_array[P_NC_T_R]),\
+                                    axis=0)
+        
+        # Phi
+        selection_array = np.insert(selection_array, selection_array.shape[0],\
+                                    np.vectorize(lambda x,y: x * y)\
+                                    (selection_array[BALANCE], selection_array[Q]),\
+                                    axis=0)
+        # print(selection_array)
+        # print(selection_array.shape)
+        selection_array = np.reshape(selection_array, (15, self.data.shape[1]))
+
+        selection_frame = pd.DataFrame(selection_array.T, index=self.data.columns, \
+                                       columns=frame_columns)
 
         if not self.root:
+            # print(selection_frame)
             # elements_to_drop = self.data.drop(self.subset, axis=1)
             # selection_frame = selection_frame.drop(elements_to_drop, axis=0)
-            selection_frame = selection_frame.drop(self.subset, axis=0)
-
+            print('SUBSET:',self.mut_subset)
+            selection_frame = selection_frame.drop(self.mut_subset, axis=0)
+            # print(selection_frame)
             
         selection_frame = selection_frame.sort_values(by='Phi(s, t)', ascending=False)
-        # if self.depth == 4:
-       #     print(selection_frame)
-        #     print(self.subset)
-        #     print('==================================================')
 
         name = selection_frame.iloc[0,:].name
-        self.subset.append(name)
-        # print('++++++++++++++++++++++++++++++++++++++++++++++++++')
-        # print(self.subset)
-        # print('++++++++++++++++++++++++++++++++++++++++++++++++++')
+        self.mut_subset.append(name)
+        #  # if self.root:
+        #  #     n_t = self.data.shape[0]
+        #  #     n_tc = len(self.data[self.data.index.str.startswith('C')])
+        #  #     n_tnc = len(self.data[self.data.index.str.startswith('NC')])
+        #  #     print('n_t: ', n_t)
+        #  #     print('n_tc: ', n_tc)
+        #  #     print('n_tnc: ', n_tnc)
+        #  #     print('p_ct: ', n_tc / n_t)
+        #  #     print('p_nct: ', n_tnc / n_t)
+        #  #     print(selection_frame.head(n=10))
 
-        # if self.root:
-        #     n_t = self.data.shape[0]
-        #     n_tc = len(self.data[self.data.index.str.startswith('C')])
-        #     n_tnc = len(self.data[self.data.index.str.startswith('NC')])
-        #     print('n_t: ', n_t)
-        #     print('n_tc: ', n_tc)
-        #     print('n_tnc: ', n_tnc)
-        #     print('p_ct: ', n_tc / n_t)
-        #     print('p_nct: ', n_tnc / n_t)
-        #     print(selection_frame.head(n=10))
+        universal_classified_positive = self.data.apply(lambda x: x[x==1].index, axis=0)
+        universal_classified_negative = self.data.apply(lambda x: x[x==0].index, axis=0)
 
         self.positives = classified_positive[name]
         self.negatives = classified_negative[name]
 
         return name
+
+
+
+# class DecisionTreePhi(DecisionTree):
+#     def __init__(self, data, depth, subset=None, root=True):
+#         super().__init__(data, depth)
+#         self.root = root
+#         if self.root:
+#             self.subset = []
+#         else:
+#             self.subset = deepcopy(subset)
+
+#         if self.classifier == None:
+#             # find the best classifier
+#             self.classifier = self.__get_next_classifier()
+
+#         if self.depth > 1:
+#             # not in the leaf nodes
+#             # positive_data = self.data.drop(self.negatives.values, axis=0)
+#             # negative_data = self.data.drop(self.positives.values, axis=0)
+#             self.right = \
+#                 DecisionTreePhi(self.data, depth-1, subset=self.subset, root=False)
+#             self.left = \
+#                 DecisionTreePhi(self.data, depth-1, subset=self.subset, root=False)
+            
+#         else:
+#             num_positive = self.data[self.data.index.str.startswith('C')].shape[0]
+#             num_negative = self.data[self.data.index.str.startswith('NC')].shape[0]
+#             self.class_positive_cancerous = num_positive >= num_negative
+#             self.class_negative_cancerous = not self.class_positive_cancerous
+
+#     def __get_next_classifier(self):
+#         """find the best mutation to use to classify cancer based on true and false 
+#         positives"""
+        
+#         frame_columns=['n(t_l)', 'n(t_r)', 'n(t_l, C)', 'n(t_l, NC)', 'n(t_r, C)',\
+#                        'n(t_r, NC)', 'P_l', 'P_r', 'P(C | t_l)', 'P(NC | t_l)', \
+#                        'P(C | t_r)', 'P(NC | t_r)', '2*P_l*P_r', 'Q', 'Phi(s, t)']
+        
+#         selection_frame = pd.DataFrame(columns=frame_columns)
+        
+#         classified_positive = self.data.apply(lambda x: x[x==1].index, axis=0)
+#         classified_negative = self.data.apply(lambda x: x[x==0].index, axis=0)
+        
+#         # get the number of samples in each tree
+#         selection_frame['n(t_r)'] = \
+#             classified_positive.apply(lambda x: 1 if (x.size < 1) else x.size)
+#         selection_frame['n(t_l)'] = \
+#             classified_negative.apply(lambda x: 1 if (x.size < 1) else x.size)
+
+#         # selection_frame['n(t_r)'] = \
+#         #    selection_frame.apply\
+#         #    (lambda x: 1 if x.loc['n(t_r)'] == 0 else x.loc['n(t_r)'], axis=1)
+#         # selection_frame['n(t_r)'] = \
+#         #    selection_frame.apply\
+#         #    (lambda x: 1 if x.loc['n(t_l)'] == 0 else x.loc['n(t_l)'], axis=1)
+
+#         # get the number of cancer and non-cancer in the left tree (fp and tn in this tree)
+#         selection_frame['n(t_l, C)'] = \
+#             classified_negative.apply(lambda x: x[x.str.startswith('C')].size)
+#         selection_frame['n(t_l, NC)'] = \
+#             classified_negative.apply(lambda x: x[x.str.startswith('NC')].size)
+
+#         # get the number of cancer and non-cancer in the left tree (tp and fn in this tree)
+#         selection_frame['n(t_r, C)'] = \
+#             classified_positive.apply(lambda x: x[x.str.startswith('C')].size)
+#         selection_frame['n(t_r, NC)'] = \
+#             classified_positive.apply(lambda x: x[x.str.startswith('NC')].size)
+
+#         # get the probability of being in the left or right tree at this split
+#         selection_frame['P_l'] = \
+#             selection_frame.apply(lambda x: x['n(t_l)'] / self.data.shape[0], axis=1)
+#         selection_frame['P_r'] = \
+#             selection_frame.apply(lambda x: x['n(t_r)'] / self.data.shape[0], axis=1)
+        
+#         # probability of having cancer and non-cancer in the left tree 
+#         selection_frame['P(C | t_l)'] = \
+#             selection_frame.apply(lambda x: x['n(t_l, C)'] / x['n(t_l)'], axis=1)
+#         selection_frame['P(NC | t_l)'] = \
+#             selection_frame.apply(lambda x: x['n(t_l, NC)'] / x['n(t_l)'], axis=1)
+        
+#         # probability of having cancer and non-cancer in the right tree
+#         selection_frame['P(C | t_r)'] = \
+#             selection_frame.apply(lambda x: x['n(t_r, C)'] / x['n(t_r)'], axis=1)
+#         selection_frame['P(NC | t_r)'] = \
+#             selection_frame.apply(lambda x: x['n(t_r, NC)'] / x['n(t_r)'], axis=1)
+        
+#         # balance
+#         selection_frame['2*P_l*P_r'] = \
+#             selection_frame.apply(lambda x: 2 * x['P_l'] * x['P_r'], axis=1)
+        
+#         # purity
+#         selection_frame['Q'] = \
+#             selection_frame.apply(lambda x: abs(x['P(C | t_l)'] - \
+#                                                 x['P(C | t_r)']) + \
+#                                   abs(x['P(NC | t_l)'] - x['P(NC | t_r)']), axis = 1)
+        
+#         selection_frame['Phi(s, t)'] = \
+#             selection_frame.apply(lambda x: x['2*P_l*P_r'] * x['Q'], axis=1)
+
+#         # find the complement of self.data and self.subset, and use it to pare down
+#         # selection frame to only the elements in self.subset
+
+#         if self.root:
+#         #     print('==================================================')
+#         	print(selection_frame)
+#         #     print(self.subset)
+
+#         if not self.root:
+#             # elements_to_drop = self.data.drop(self.subset, axis=1)
+#             # selection_frame = selection_frame.drop(elements_to_drop, axis=0)
+#             selection_frame = selection_frame.drop(self.subset, axis=0)
+
+            
+#         selection_frame = selection_frame.sort_values(by='Phi(s, t)', ascending=False)
+#         # if self.depth == 4:
+#        #     print(selection_frame)
+#         #     print(self.subset)
+#         #     print('==================================================')
+
+#         name = selection_frame.iloc[0,:].name
+#         self.subset.append(name)
+#         # print('++++++++++++++++++++++++++++++++++++++++++++++++++')
+#         # print(self.subset)
+#         # print('++++++++++++++++++++++++++++++++++++++++++++++++++')
+
+#         # if self.root:
+#         #     n_t = self.data.shape[0]
+#         #     n_tc = len(self.data[self.data.index.str.startswith('C')])
+#         #     n_tnc = len(self.data[self.data.index.str.startswith('NC')])
+#         #     print('n_t: ', n_t)
+#         #     print('n_tc: ', n_tc)
+#         #     print('n_tnc: ', n_tnc)
+#         #     print('p_ct: ', n_tc / n_t)
+#         #     print('p_nct: ', n_tnc / n_t)
+#         #     print(selection_frame.head(n=10))
+
+#         self.positives = classified_positive[name]
+#         self.negatives = classified_negative[name]
+
+#         return name
 
         
 
